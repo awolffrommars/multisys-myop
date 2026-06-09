@@ -24,7 +24,22 @@ Generate Multisys announcement posters — New Employee, Birthday, and Work Anni
 
 ## Quick Start
 
-**Prerequisites:** [Node.js LTS](https://nodejs.org) must be installed.
+### 1. Install Prerequisites
+
+**Node.js** is required. Install it one of these ways:
+
+- **Mac (Homebrew):**
+  ```bash
+  brew install node
+  ```
+- **Windows / Mac (manual):** Download the LTS installer from [nodejs.org](https://nodejs.org) and run it.
+
+Verify it's installed:
+```bash
+node -v
+```
+
+### 2. Clone and Run
 
 ```bash
 git clone https://github.com/awolffrommars/multisys-myop.git
