@@ -1,133 +1,120 @@
 # Handoff — MakeYourOwnPoster
 
-Last updated: 2026-06-09
+Last updated: 2026-06-10
 
 ## What this app does
 
-Express + Puppeteer poster generator. User selects a template, uploads a CSV + PNG photos (or enters employees manually), previews the match, generates poster PNGs, and downloads a ZIP. Three templates: New Employee, Birthday, Work Anniversary (anniversary rendering not yet complete — see below).
+Express + Puppeteer poster generator. User selects a template, uploads a CSV + PNG photos (or enters employees manually), previews the match, generates poster PNGs, and downloads a ZIP.
 
-Start the server: `npm start` → http://localhost:3000
+**Three fully working templates:** New Employee, Birthday, Work Anniversary.
+
+Start locally: `npm start` → http://localhost:3000
+Live site: https://awolffrommars-multisys-myop.hf.space
+GitHub repo: https://github.com/awolffrommars/multisys-myop
 
 ---
 
-## Current state: what's done
+## Current state: everything is done
 
-### New Employee template — fully working
+### New Employee
 - CSV: `Full Name, Position, Department`
-- Poster HTML: `templates/poster.html`
-- Font shrink at >24 chars (29px instead of 36px)
+- Poster: `templates/poster.html` (1920×1081)
+- Font shrinks to 29px when name > 24 chars
 
-### Birthday template — fully working
+### Birthday
 - CSV: `Birthday, Full Name, Position, Division, Department`
-- Poster HTML: `templates/poster-birthday.html`
-- Date auto-correction (month spelling + year strip) in `services/csv.js`
+- Poster: `templates/poster-birthday.html` (1920×1081)
+- Date auto-correction: month spelling + year strip in `services/csv.js`
 - Full Name fixed at 57px, no shrinking
-- Manual entry: 6-col grid — `[Birthday | Full Name | Position]` / `[Division | Department]`
+- **Key quirk:** `csv.js` stores birthday rows with swapped keys (`department` key holds Division text, `division` key holds Department text). This is intentional — do not fix.
 
-### Work Anniversary template — client + server done, poster HTML missing
+### Work Anniversary
 - CSV: `Date Hired, Years, Full Name, Position, Division, Department`
-- Server validates Years column is numeric; rejects invalid CSVs
-- `services/csv.js` parses anniversary rows into `{ dateHired, anniversaryYears, fullName, position, division, department }`
-- `server.js` passes `anniversaryYears` and `dateHired` to `renderPoster()`
-- Manual entry: 6-col grid — `[Years | Full Name | Position]` / `[Division | Department]`
-- Template card in the UI is enabled and selectable
-- **MISSING:** `templates/Work Anniversary Poster_Template.png` (background image)
-- **MISSING:** `templates/poster-anniversary.html` (HTML layout)
-- Currently falls through to `poster.html` — generates a broken new-employee poster
+- Poster: `templates/poster-anniversary.html` (1920×1081)
+- Name split into `{{FIRST_NAME}}` / `{{LAST_NAME}}` in `poster.js` (last word = last name)
+- Years displayed in orange (#eb6004) in the polaroid white strip
+- Single-word name logs a `console.warn` and leaves last-name overlay blank — no crash
 
 ---
 
-## What needs to be done next
+## Deployment
 
-### 1. Create `templates/poster-anniversary.html`
+Two-branch git strategy:
+- `main` — has template PNGs, used for GitHub and local dev
+- `hf` — orphan branch (no history), no PNGs, used for HuggingFace
 
-Copy `poster-birthday.html` as a starting point. Tokens to replace:
-- `{{TEMPLATE_BASE64}}` — background PNG (same pattern as other templates)
-- `{{PHOTO_BASE64}}` — employee photo
-- `{{FULL_NAME}}`
-- `{{POSITION}}`
-- `{{DIVISION}}`
-- `{{DEPARTMENT}}`
-- `{{ANNIVERSARY_YEARS}}` — e.g. "3" or "5"
-- `{{DATE_HIRED}}` — e.g. "May 01" (already year-stripped by csv.js)
+HuggingFace rejects binary files in git. The Dockerfile downloads template PNGs from GitHub raw URLs at build time.
 
-### 2. Create `templates/Work Anniversary Poster_Template.png`
+### To deploy updates (run in order every time):
 
-Background image for the anniversary poster. Drop the PNG into the `templates/` folder, then hit `POST /reload-template` (or restart the server) to load it.
-
-### 3. Update `services/poster.js` line 27
-
-```js
-// Current (broken for anniversary):
-const htmlFile = templateKey === 'birthday' ? 'poster-birthday.html' : 'poster.html';
-
-// Fix:
-const htmlFile = templateKey === 'birthday'    ? 'poster-birthday.html'
-               : templateKey === 'anniversary' ? 'poster-anniversary.html'
-               : 'poster.html';
+**1. Push to GitHub:**
+```bash
+git add .
+git commit -m "your message"
+git push origin main
 ```
 
-### 4. Add token replacements in `services/poster.js` (~line 44)
-
-```js
-// Add these two lines to the .replace() chain:
-.replace('{{ANNIVERSARY_YEARS}}', data.anniversaryYears || '')
-.replace('{{DATE_HIRED}}', data.dateHired || '')
+**2. Push to HuggingFace:**
+```bash
+git branch -D hf
+git checkout --orphan hf
+git rm --cached "templates/Birthday Poster_Template.png" "templates/New Employee Poster_Template.png" "templates/Work Anniversary_Template.png"
+printf '\ntemplates/Birthday Poster_Template.png\ntemplates/New Employee Poster_Template.png\ntemplates/Work Anniversary_Template.png' >> .gitignore
+git add .
+git commit -m "HF deploy"
+git push hf hf:main --force
+git checkout main
 ```
+
+HF rebuilds automatically after push — takes 3–5 minutes.
 
 ---
 
 ## Key quirks — read before touching these areas
 
 ### Birthday CSV key inversion (intentional)
-`services/csv.js` stores birthday rows with SWAPPED keys:
+`services/csv.js` stores birthday rows with swapped keys:
 - `department` key ← holds Division text (col D)
 - `division` key ← holds Department text (col E)
 
-This is intentional — the poster template's `{{DEPARTMENT}}` and `{{DIVISION}}` tokens happen to produce the correct output this way. The manual entry form compensates with a label swap inside `onTemplateChange()` in `index.html`.
+The poster template tokens `{{DEPARTMENT}}` and `{{DIVISION}}` produce correct output this way. The manual entry form compensates with a label swap in `onTemplateChange()` in `index.html`. **Do not rename these keys without also updating the poster template tokens AND the label swap.**
 
-**Do not rename these keys without also updating the poster template tokens AND the label swap.**
+### Parallel rendering
+`CONCURRENCY = 3` in `server.js`. The generate loop slices employees into batches of 3 and runs `Promise.all` per batch. Results are pushed in original order after each batch to keep `posters[]` / `photos[]` indices aligned.
 
-### Manual form grid (index.html)
-The form row `#manualFormRow` has 6 children in this DOM order:
-1. `#manualBirthdayField` — hidden by default; shown + grid-positioned by `bday-layout`
-2. `#manualYearsField` — hidden by default; shown + grid-positioned by `ann-layout`
-3. `#manualNameField`
-4. `#manualPositionField`
-5. `#manualDeptField`
-6. `#manualDivisionField` — hidden by default for new-employee
+### Puppeteer
+- Uses `waitUntil: 'domcontentloaded'` (not `networkidle0`) with `timeout: 60000` — avoids navigation timeout on HuggingFace servers where Google Fonts CDN is slow
+- `executablePath` reads from `process.env.PUPPETEER_EXECUTABLE_PATH` — set to `/usr/bin/chromium` in Docker, falls back to local Chrome path for local dev
+- Browser is a singleton per batch; closed in the `finally` block after each `/generate` call
 
-CSS classes on `#manualFormRow`:
-- (none) → 3-col grid, only Name/Position/Dept visible — New Employee
-- `bday-layout` → 6-col, Birthday(1) | Name(2) | Position(3) / Division(3) | Department(3)
-- `ann-layout` → 6-col, Years(1) | Name(2) | Position(3) / Division(3) | Department(3)
-
-For `ann-layout`, Division and Department get explicit `grid-column` + `grid-row` to swap their visual order (DOM has Dept before Div, but the layout needs Div first).
+### `clearAllFields()` in index.html
+Must explicitly set `photoRemoveBtn.style.display = 'none'`. If omitted, the × button stays visible on the photo zone after a template switch or back-navigation even when no photos are loaded.
 
 ### `onTemplateChange()` in index.html
-This function manages ALL template-specific UI state: grid class, field visibility, label swaps (birthday), CSV hint text, preview table columns, edit modal fields. Always update it when adding template-specific UI behavior.
+Manages all template-specific UI state: grid class, field visibility, label swaps (birthday), CSV hint text, preview table columns, edit modal fields. Always update when adding template-specific UI behavior.
 
 ### `buildPrepareForm()` in index.html
-Builds the synthetic CSV sent to `/prepare` for manual-entry jobs. If you change CSV column order in `services/csv.js`, update this function to match.
+Builds the synthetic CSV sent to `/prepare` for manual-entry jobs. If CSV column order in `services/csv.js` changes, update this function to match.
 
 ---
 
 ## File map
 
 ```
-server.js                      — Express routes, job store, ZIP builder
+server.js                        — Express routes, job store, ZIP builder (CONCURRENCY=3)
 services/
-  csv.js                       — CSV parsing for all 3 templates
-  matcher.js                   — normalizeNameKey(), buildPhotoMap(), findPhoto()
-  poster.js                    — Puppeteer rendering, browser singleton
+  csv.js                         — CSV parsing for all 3 templates + date correction
+  matcher.js                     — normalizeNameKey(), buildPhotoMap(), findPhoto()
+  poster.js                      — Puppeteer rendering, browser singleton
 public/
-  index.html                   — entire frontend (single file)
+  index.html                     — entire frontend (single file)
 templates/
-  poster.html                  — New Employee poster layout
-  poster-birthday.html         — Birthday poster layout
-  poster-anniversary.html      — ⚠ MISSING — needs to be created
+  poster.html                    — New Employee poster layout (1920×1081)
+  poster-birthday.html           — Birthday poster layout (1920×1081)
+  poster-anniversary.html        — Work Anniversary poster layout (1920×1081)
   New Employee Poster_Template.png
   Birthday Poster_Template.png
-  Work Anniversary Poster_Template.png  — ⚠ MISSING — needs to be created
-  poster.v1.html               — V1 backup, ignore
+  Work Anniversary_Template.png
+Dockerfile                       — HuggingFace Docker config; downloads PNGs from GitHub at build time
+README.md                        — teammate quickstart + CSV format reference
 ```
