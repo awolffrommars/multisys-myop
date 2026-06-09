@@ -179,8 +179,29 @@
     .btn-secondary:hover:not(:disabled) { background: #262626; }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .btn-row { display: flex; gap: 10px; margin-top: 20px; }
-    .btn-row .btn { flex: 1; }
+    .btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+    .btn-row .btn { width: 100%; }
+    .upload-progress-bar {
+      height: 3px;
+      background: #1c1c1c;
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .upload-progress-bar.active { display: block; }
+    .upload-progress-bar::after {
+      content: '';
+      display: block;
+      height: 100%;
+      width: 40%;
+      background: #fff;
+      border-radius: 2px;
+      animation: upload-slide 1.4s ease-in-out infinite;
+    }
+    @keyframes upload-slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
 
     /* Preview table */
     .preview-table { width: 100%; border-collapse: collapse; }
@@ -230,6 +251,15 @@
     }
     .upload-inline:hover { background: #262626; }
     .upload-inline input[type="file"] { display: none; }
+    .upload-inline.uploading { pointer-events: none; opacity: 0.7; cursor: default; }
+    .upload-inline-spinner {
+      width: 10px; height: 10px;
+      border: 2px solid #555;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
 
     /* Progress */
     .progress-row {
@@ -830,6 +860,7 @@
 
         <div class="btn-row">
           <button class="btn btn-primary" id="uploadBtn" disabled>Upload &amp; Preview</button>
+          <div class="upload-progress-bar" id="uploadProgressBar"></div>
         </div>
       </div>
     </div>
@@ -1638,14 +1669,17 @@
   document.getElementById('uploadBtn').addEventListener('click', async () => {
     setError('');
     const btn = document.getElementById('uploadBtn');
+    const bar = document.getElementById('uploadProgressBar');
     btn.disabled = true;
     btn.textContent = 'Uploading...';
+    bar.classList.add('active');
     try {
       await submitPrepare();
       goToStep(2);
     } catch (err) {
       setError(err.message);
     } finally {
+      bar.classList.remove('active');
       btn.textContent = 'Upload & Preview';
       updateUploadBtn();
     }
@@ -1727,6 +1761,9 @@
         tr.querySelector('input[type="file"]').addEventListener('change', async function () {
           const file = this.files[0];
           if (!file) return;
+          const label = this.closest('label');
+          label.classList.add('uploading');
+          label.innerHTML = '<span class="upload-inline-spinner"></span> Uploading…';
           const renamed = new File([file], `${emp.fullName}.png`, { type: file.type });
           if (activeMode === 'csv') {
             const key = normalizeNameKey(emp.fullName);
@@ -1737,7 +1774,11 @@
             const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
             if (manualEmp) manualEmp.photoFile = renamed;
           }
-          try { await submitPrepare(); } catch (err) { setError(err.message); }
+          try { await submitPrepare(); } catch (err) {
+            setError(err.message);
+            label.classList.remove('uploading');
+            label.innerHTML = '↑ Upload Photo';
+          }
         });
       }
       tbody.appendChild(tr);
