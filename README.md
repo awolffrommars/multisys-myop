@@ -42,6 +42,7 @@ node -v
 ### 2. Clone and Run
 
 ```bash
+cd ~/Desktop
 git clone https://github.com/awolffrommars/multisys-myop.git
 cd multisys-myop
 npm install
@@ -51,6 +52,19 @@ npm start
 > `npm install` downloads Puppeteer's bundled Chromium (~200MB) on first run — this is normal and only happens once.
 
 Then open `http://localhost:3000` in your browser.
+
+### Getting updates
+
+When a new version is pushed to GitHub, pull the latest changes and restart:
+
+```bash
+cd ~/Desktop/multisys-myop
+git pull origin main
+lsof -ti :3000 | xargs kill -9
+nohup node server.js > /tmp/poster-server.log 2>&1 &
+```
+
+Then refresh `http://localhost:3000`.
 
 ### Restarting the server
 
