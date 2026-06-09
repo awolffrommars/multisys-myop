@@ -48,9 +48,9 @@ npm install
 npm start
 ```
 
-Then open `http://localhost:3000` in your browser.
-
 > `npm install` downloads Puppeteer's bundled Chromium (~200MB) on first run — this is normal and only happens once.
+
+Then open `http://localhost:3000` in your browser.
 
 ## Live Site
 
@@ -85,17 +85,24 @@ View rendered posters in a lightbox (← → to navigate). Edit any poster to fi
 
 ## CSV Formats
 
+**Birthday:**
+```
+Birthday, Full Name, Position, Division, Department
+```
+
+Birthday date format: `Month DD` (e.g. `May 01`). Month spelling is auto-corrected and years are stripped automatically — `May 01, 1990`, `1990-08-25`, and `08/25/1990` all work.
+
 **New Employee:**
 ```
 Full Name, Position, Department
 ```
 
-**Birthday:**
+**Work Anniversary:**
 ```
-Birthday, Full Name, Position, Department, Division
+Date Hired, Years, Full Name, Position, Division, Department
 ```
 
-Birthday date format: `Month DD` (e.g. `May 01`). Month spelling is auto-corrected and years are stripped automatically — `May 01, 1990`, `1990-08-25`, and `08/25/1990` all work.
+Date Hired follows the same auto-correction as Birthday. Years must be a whole number (e.g. `5`).
 
 ## Photo Matching
 
