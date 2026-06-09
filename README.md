@@ -60,7 +60,7 @@ The app is also deployed at: https://awolffrommars-multisys-myop.hf.space
 
 ### Step 1 — Select Template
 
-Choose **Birthday Poster** or **New Employee Poster**. The Work Anniversary template is reserved for future use. Switching templates clears all uploaded files and entries.
+Choose **Birthday Poster**, **New Employee Poster**, or **Work Anniversary**. Switching templates clears all uploaded files and entries.
 
 ### Step 2 — Add Employees
 
@@ -119,8 +119,10 @@ Photos are matched by normalizing the employee name and the photo filename (lowe
 ├── templates/
 │   ├── poster.html            # New Employee poster (1920×1081)
 │   ├── poster-birthday.html   # Birthday poster (1920×1081)
+│   ├── poster-anniversary.html # Work Anniversary poster (1920×1081)
 │   ├── New Employee Poster_Template.png
-│   └── Birthday Poster_Template.png
+│   ├── Birthday Poster_Template.png
+│   └── Work Anniversary_Template.png
 └── public/
     └── index.html             # Web UI
 ```
