@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(pkill -f \"npm start\")",
+      "Bash(npm start *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(sips -g pixelWidth -g pixelHeight \"templates/New Employee Poster_Template.png\")",
+      "Bash(python3)",
+      "Bash(pip3 install *)",
+      "Bash(curl -X POST http://localhost:3000/reload-template)"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+.git/
+*.log
+.env
+.env.*
+credentials.json
+server.v1.js
+public/index.v1.html
+templates/poster.v1.html
+.playwright-mcp/

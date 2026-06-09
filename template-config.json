@@ -1,0 +1,16 @@
+{
+  "new-employee": {
+    "photoLeft": 1116,
+    "photoTop": 136,
+    "photoWidth": 544,
+    "photoHeight": 648,
+    "textLeft": 1116,
+    "textWidth": 544,
+    "nameTop": 816,
+    "posTop": 860,
+    "deptTop": 893,
+    "nameFontSize": 36,
+    "posFontSize": 27,
+    "deptFontSize": 27
+  }
+}

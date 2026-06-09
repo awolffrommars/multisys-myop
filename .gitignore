@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.env
+.env.*
+credentials.json
+.playwright-mcp/
+templates/Birthday Poster_Template.png
+templates/New Employee Poster_Template.png
+templates/Work Anniversary_Template.png

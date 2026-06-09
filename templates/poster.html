@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Employee Poster</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1920px;
+      height: 1081px;
+      overflow: hidden;
+      font-family: 'Montserrat', 'Helvetica Neue', 'Arial', sans-serif;
+    }
+
+    /* ─── POSITION TUNING ─────────────────────────────────────────
+       Adjust these values if the overlays don't align with your
+       template. All values are in pixels on a 1920×1080 canvas.
+    ──────────────────────────────────────────────────────────────── */
+    :root {
+      /* Measured from actual template PNG (1920×1081) */
+      --photo-left:   1116px;  /* left edge of the photo area     */
+      --photo-top:     136px;  /* top edge of the photo area      */
+      --photo-width:   544px;  /* width of the photo area         */
+      --photo-height:  648px;  /* height of the photo area        */
+
+      --text-left:    1116px;  /* same x as photo (text centered in photo column) */
+      --text-width:    544px;  /* same width as photo column      */
+      --name-top:      816px;  /* top of the Full Name text       */
+      --pos-top:       860px;  /* top of the Position text        */
+      --dept-top:      893px;  /* top of the Department text      */
+    }
+
+    .poster {
+      width: 1920px;
+      height: 1081px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Template background — the uploaded PNG fills the entire canvas */
+    .template-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Employee photo — covers the orange "Photo Here" area */
+    .photo-overlay {
+      position: absolute;
+      left: var(--photo-left);
+      top: var(--photo-top);
+      width: var(--photo-width);
+      height: var(--photo-height);
+      overflow: hidden;
+      z-index: 10;
+      background-color: #e96224; /* matches template orange, hides "Photo Here" behind transparent PNG areas */
+    }
+
+    .photo-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top; /* crop from the top so face stays visible */
+      display: block;
+    }
+
+    /* Text overlays — sit on the white card area below the photo */
+    .text-overlay {
+      position: absolute;
+      left: var(--text-left);
+      width: var(--text-width);
+      text-align: center;
+      z-index: 10;
+    }
+
+    .employee-name {
+      top: var(--name-top);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 36px;
+      font-weight: 800;       /* ExtraBold */
+      color: #000;
+      text-transform: uppercase;
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .employee-position {
+      top: var(--pos-top);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 27px;
+      font-weight: 600;       /* SemiBold */
+      color: #111;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.15;
+      word-wrap: break-word;
+      text-align: center;
+    }
+
+    .employee-department {
+      top: var(--dept-top);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 27px;
+      font-weight: 400;       /* Regular */
+      color: #000;
+      line-height: 1.2;
+      word-wrap: break-word;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+
+    <!-- Fixed template background (your brand design) -->
+    <img class="template-bg" src="{{TEMPLATE_BASE64}}" alt="" />
+
+    <!-- Employee photo fills the orange placeholder area -->
+    <div class="photo-overlay">
+      <img src="{{PHOTO_BASE64}}" alt="" />
+    </div>
+
+    <!-- Text fields overlaid on the white card section -->
+    <div class="text-overlay employee-name" style="top: var(--name-top)">{{FULL_NAME}}</div>
+    <div class="text-overlay employee-position" style="top: var(--pos-top)">{{POSITION}}</div>
+    <div class="text-overlay employee-department" style="top: var(--dept-top)">{{DEPARTMENT}}</div>
+
+  </div>
+</body>
+</html>

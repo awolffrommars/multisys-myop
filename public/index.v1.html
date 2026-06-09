@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poster Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #090909;
+      color: #fff;
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-feature-settings: 'cv01','cv05','cv09','cv11','ss03','ss07';
+      min-height: 100vh;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .main {
+      width: 100%;
+      max-width: 720px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header { margin-bottom: 40px; }
+
+    .logo {
+      height: 28px;
+      width: auto;
+      display: block;
+      margin-bottom: 20px;
+      opacity: 0.9;
+    }
+
+    .title {
+      font-size: 62px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -3.1px;
+      color: #fff;
+      margin-bottom: 14px;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: -0.18px;
+      color: #999;
+    }
+
+    .card {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 20px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.13px;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .upload-zone {
+      border: 1px dashed #333;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #555;
+      background: #1c1c1c;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-zone .zone-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .upload-zone .zone-sub {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .upload-zone.has-file { border-color: #22c55e44; background: #22c55e08; }
+    .upload-zone.has-file .zone-label { color: #22c55e; }
+
+    .hint {
+      font-size: 13px;
+      color: #555;
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+
+    .hint code {
+      background: #1c1c1c;
+      border: 1px solid #262626;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: none;
+      border-radius: 100px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      letter-spacing: -0.14px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    }
+
+    .btn-primary { background: #fff; color: #000; }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(255,255,255,0.15);
+    }
+
+    .btn-secondary { background: #1c1c1c; color: #fff; border: 1px solid #262626; }
+    .btn-secondary:hover:not(:disabled) { background: #262626; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-row .btn { flex: 1; }
+
+    /* Preview table */
+    .preview-table { width: 100%; border-collapse: collapse; }
+    .preview-table th {
+      font-size: 12px; font-weight: 500; color: #555;
+      text-align: left; padding: 0 8px 10px 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .preview-table td {
+      font-size: 14px; color: #fff;
+      padding: 10px 8px 10px 0; border-bottom: 1px solid #1a1a1a;
+      vertical-align: middle;
+    }
+    .preview-table tr:last-child td { border-bottom: none; }
+    .preview-table td:nth-child(4),
+    .preview-table th:nth-child(4) { width: 110px; white-space: nowrap; }
+    .preview-table td:nth-child(5),
+    .preview-table th:nth-child(5) { width: 150px; white-space: nowrap; }
+
+    .match-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 500;
+      padding: 3px 9px; border-radius: 100px;
+    }
+    .match-badge.found { background: #22c55e18; color: #22c55e; }
+    .match-badge.missing { background: #ff557718; color: #ff5577; }
+
+    .preview-table tr.photo-missing td:not(:last-child) { opacity: 0.35; }
+
+    .upload-inline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 100px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-left: 8px;
+    }
+    .upload-inline:hover { background: #262626; }
+    .upload-inline input[type="file"] { display: none; }
+
+    /* Progress */
+    .progress-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid #1a1a1a;
+      font-size: 14px; color: #999;
+    }
+    .progress-row:last-child { border-bottom: none; }
+
+    .progress-icon {
+      width: 20px; height: 20px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+    }
+    .progress-icon.spinning { animation: spin 0.8s linear infinite; }
+    .progress-icon.done { color: #22c55e; }
+    .progress-icon.error { color: #ff5577; }
+    .progress-icon.skipped { color: #444; }
+    .progress-icon.queued { color: #333; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-info { flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; }
+    .progress-name { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .progress-detail { font-size: 12px; color: #555; flex-shrink: 0; }
+    .progress-status { font-size: 12px; color: #555; flex-shrink: 0; }
+    .progress-row.error .progress-name { color: #ff5577; }
+
+    /* Poster preview gallery */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .gallery-item {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .gallery-item:hover {
+      border-color: #444;
+      transform: translateY(-2px);
+    }
+
+    .gallery-item img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-footer {
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      gap: 8px;
+    }
+
+    .gallery-item .gallery-label {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #999;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gallery-dl {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    /* Edit modal */
+    .edit-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: rgba(0,0,0,0.88);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .edit-modal-overlay.open { display: flex; }
+    .edit-modal-box {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .edit-modal-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: -0.13px;
+      margin-bottom: 20px;
+    }
+
+    /* Lightbox */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+    }
+
+    .lightbox.open { display: flex; }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: calc(100vh - 100px);
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 100px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .lightbox-name {
+      font-size: 14px;
+      color: #999;
+    }
+
+    /* Error banner */
+    .error-banner {
+      background: #ff55771a; border: 1px solid #ff557733;
+      border-radius: 12px; padding: 14px 18px;
+      font-size: 14px; color: #ff5577;
+      margin-bottom: 16px; display: none;
+    }
+    .error-banner.show { display: block; }
+
+    /* Template selector */
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .template-option {
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 16px 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .template-option:not(.disabled):hover { border-color: #444; }
+
+    .template-option.active { background: #1c1c1c; }
+    .template-option.active.tpl-birthday      { border-color: #cc3333; background: #cc333310; }
+    .template-option.active.tpl-new-employee  { border-color: #ffb133; background: #ffb13310; }
+    .template-option.active.tpl-anniversary   { border-color: #eb6004; background: #eb600410; }
+
+    .template-option.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+.template-option-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+      line-height: 1.3;
+    }
+
+    .template-option-badge {
+      font-size: 10px;
+      font-weight: 500;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 5px;
+    }
+
+    /* Mode tabs */
+    .mode-tabs {
+      display: flex;
+      gap: 3px;
+      background: #0d0d0d;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      background: transparent;
+      color: #555;
+    }
+
+    .mode-tab.active { background: #1c1c1c; color: #fff; }
+
+    /* Manual entry form */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .form-field { display: flex; flex-direction: column; gap: 6px; }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      background: #1c1c1c;
+      border: 1px solid #262626;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    .form-input:focus { border-color: #444; }
+    .form-input::placeholder { color: #3a3a3a; }
+
+    .manual-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+
+    .manual-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #1c1c1c;
+      border: 1px solid #262626;
+      border-radius: 10px;
+    }
+
+    .manual-item-info { flex: 1; min-width: 0; }
+    .manual-item-name { font-size: 14px; color: #fff; font-weight: 500; }
+    .manual-item-detail { font-size: 12px; color: #555; margin-top: 2px; }
+
+    .manual-item-photo { font-size: 11px; font-weight: 500; flex-shrink: 0; }
+    .manual-item-photo.has { color: #22c55e; }
+    .manual-item-photo.none { color: #3a3a3a; }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      color: #3a3a3a;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 0 2px;
+      line-height: 1;
+      flex-shrink: 0;
+      font-family: inherit;
+      transition: color 0.15s;
+    }
+    .btn-icon:hover { color: #ff5577; }
+    .btn-icon.edit:hover { color: #fff; }
+
+    .photo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 10px;
+    }
+
+    .photo-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      background: #1c1c1c;
+      border: 1px solid #262626;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #999;
+    }
+
+    .photo-list-item span {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .photo-list-item.no-match {
+      border-color: #ff557744;
+      background: #ff55771a;
+      color: #ff5577;
+    }
+
+    .photo-list-item.duplicate {
+      border-color: #a855f744;
+      background: #a855f71a;
+      color: #a855f7;
+    }
+
+    .photo-duplicate-badge {
+      font-size: 11px;
+      font-weight: 500;
+      color: #a855f7;
+      flex-shrink: 0;
+      margin-right: 2px;
+    }
+
+    .details-toggle {
+      font-size: 12px;
+      color: #555;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .details-toggle:hover { color: #999; }
+
+    .details-list {
+      display: none;
+      margin: 6px 0 2px 2px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.8;
+      list-style: none;
+    }
+    .details-list.open { display: block; }
+    .details-list li::before { content: "• "; }
+
+    #manualMode.fields-locked .form-row,
+    #manualMode.fields-locked #manualPhotoZone {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .photo-match-hint { font-size: 12px; margin-top: 6px; }
+    .photo-match-hint.match { color: #22c55e; }
+    .photo-match-hint.mismatch { color: #f59e0b; }
+    .photo-match-hint.neutral { color: #555; }
+
+    /* Download card */
+    .success-card {
+      background: #22c55e0d;
+      border: 1px solid #22c55e33;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .success-card p { font-size: 15px; color: #fff; }
+    .success-card .count { font-size: 13px; color: #22c55e; margin-top: 2px; }
+
+    /* Steps */
+    .step { display: none; }
+    .step.active { display: block; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="main">
+
+    <div class="header">
+      <img class="logo" src="/logo-multisys.svg" alt="Multisys" />
+      <h1 class="title">Recurring Activities<br>Poster Generator</h1>
+      <p class="subtitle">Generate New Employee announcements in bulk.</p>
+    </div>
+
+    <div class="error-banner" id="errorBanner"></div>
+
+    <!-- STEP 1: Upload -->
+    <div class="step active" id="step1">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Select Template</div>
+        <div class="template-grid">
+          <div class="template-option disabled tpl-birthday">
+            <div class="template-option-name">Birthday Poster</div>
+            <div class="template-option-badge">Unavailable</div>
+          </div>
+          <div class="template-option active tpl-new-employee">
+            <div class="template-option-name">New Employee Poster</div>
+          </div>
+          <div class="template-option disabled tpl-anniversary">
+            <div class="template-option-name">Work Anniversary</div>
+            <div class="template-option-badge">Unavailable</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Add Employees</div>
+
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tabCsv">Batch Upload</button>
+          <button class="mode-tab" id="tabManual">Manual Entry</button>
+        </div>
+
+        <!-- CSV mode -->
+        <div id="csvMode">
+          <div class="upload-zone" id="csvZone">
+            <input type="file" id="csvInput" accept=".csv" />
+            <div class="zone-label" id="csvLabel">Drop CSV file here or click to browse</div>
+            <div class="zone-sub">Google Sheets → File → Download → CSV</div>
+          </div>
+
+          <div class="upload-zone" id="photoZone">
+            <input type="file" id="photoInput" accept=".png" multiple />
+            <div class="zone-label" id="photoLabel">Drop PNG photos here or click to browse</div>
+            <div class="zone-sub" id="photoSub">PNG only — ensures transparent backgrounds</div>
+          </div>
+          <div class="photo-list" id="photoList"></div>
+
+          <p class="hint">
+            CSV columns: <code>Full Name</code>, <code>Position</code>, <code>Department</code><br>
+            Photo filenames can be in any name order —
+            <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"
+          </p>
+        </div>
+
+        <!-- Manual entry mode -->
+        <div id="manualMode" style="display:none">
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label" for="manualName">Full Name</label>
+              <input class="form-input" type="text" id="manualName" placeholder="Maria Santos" />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="manualPosition">Position</label>
+              <input class="form-input" type="text" id="manualPosition" placeholder="Software Engineer" />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="manualDept">Department</label>
+              <input class="form-input" type="text" id="manualDept" placeholder="Engineering" />
+            </div>
+          </div>
+
+          <div class="upload-zone" id="manualPhotoZone">
+            <input type="file" id="manualPhotoInput" accept=".png,.jpg,.jpeg" />
+            <div class="zone-label" id="manualPhotoLabel">Photo (optional) — click or drop</div>
+            <div class="zone-sub">PNG preferred for transparent backgrounds</div>
+            <div class="photo-match-hint neutral" id="photoMatchHint" style="display:none"></div>
+          </div>
+
+          <button class="btn btn-secondary" id="addEmployeeBtn" style="width:100%;margin-top:12px">+ Add Employee</button>
+
+          <div id="deptConfirm" style="display:none;margin-top:12px">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#1c1c1c;border:1px solid #333;border-radius:12px;">
+              <span id="deptConfirmMsg" style="flex:1;font-size:13px;color:#999"></span>
+              <button class="btn btn-secondary" id="deptConfirmYes" style="padding:7px 16px;font-size:13px">Add anyway</button>
+              <button class="btn btn-secondary" id="deptConfirmNo" style="padding:7px 16px;font-size:13px">Cancel</button>
+            </div>
+          </div>
+
+          <div class="manual-list" id="manualList"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="uploadBtn" disabled>Upload &amp; Preview</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Preview -->
+    <div class="step" id="step2">
+      <div class="card">
+        <div class="card-title">Employee Preview</div>
+        <div id="previewSummary" style="display:none;margin-bottom:16px"></div>
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Position</th>
+              <th>Department</th>
+              <th>Photo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="backBtn">← Back</button>
+          <button class="btn btn-primary" id="generateBtn">Generate Posters</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Progress + Preview Gallery + Download -->
+    <div class="step" id="step3">
+      <div class="card" id="progressCard">
+        <div class="card-title" id="progressTitle">Generating...</div>
+        <div id="progressList"></div>
+      </div>
+
+      <!-- Poster preview gallery (shown after generation) -->
+      <div id="gallerySection" style="display:none">
+        <div class="success-card">
+          <div>
+            <p>All posters generated!</p>
+            <div class="count" id="doneCount"></div>
+          </div>
+          <button class="btn btn-primary" id="downloadBtn">Download ZIP</button>
+        </div>
+
+        <div class="gallery" id="gallery"></div>
+
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-secondary" id="restartBtn">Start Over</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="edit-modal-overlay" id="editModalOverlay">
+  <div class="edit-modal-box">
+    <div class="edit-modal-title">Edit Poster</div>
+    <div class="form-field" style="margin-bottom:12px">
+      <label class="form-label">Full Name</label>
+      <input class="form-input" type="text" id="editName" />
+    </div>
+    <div class="form-field" style="margin-bottom:12px">
+      <label class="form-label">Position</label>
+      <input class="form-input" type="text" id="editPosition" />
+    </div>
+    <div class="form-field" style="margin-bottom:12px">
+      <label class="form-label">Department</label>
+      <input class="form-input" type="text" id="editDept" />
+    </div>
+    <div class="upload-zone" id="editPhotoZone" style="margin-bottom:0">
+      <input type="file" id="editPhotoInput" accept=".png,.jpg,.jpeg" />
+      <div class="zone-label" id="editPhotoLabel">Replace photo (optional)</div>
+      <div class="zone-sub">Leave empty to keep current photo</div>
+      <div class="photo-match-hint neutral" id="editPhotoMatchHint" style="display:none"></div>
+    </div>
+
+    <div id="editMismatchConfirm" style="display:none;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0d0d0d;border:1px solid #333;border-radius:12px;">
+        <span style="flex:1;font-size:13px;color:#999" id="editMismatchMsg"></span>
+        <button class="btn btn-secondary" id="editMismatchYes" style="padding:7px 16px;font-size:13px">Proceed anyway</button>
+        <button class="btn btn-secondary" id="editMismatchNo" style="padding:7px 16px;font-size:13px">Cancel</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="editCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="editSaveBtn">Regenerate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose">✕ Close</button>
+  <img id="lightboxImg" src="" alt="" />
+  <div class="lightbox-name" id="lightboxName"></div>
+</div>
+
+<script>
+  let currentJobId = null;
+  let csvFile = null;
+  let photoFiles = [];
+  let currentSuffix = '';
+  let currentEmployees = [];
+  let activeMode = 'csv';
+  let manualEmployees = [];
+  let currentManualPhoto = null;
+  let csvEmployeeNames = [];
+  let duplicateFiles = [];
+
+  const csvInput = document.getElementById('csvInput');
+  const photoInput = document.getElementById('photoInput');
+
+  csvInput.addEventListener('change', () => {
+    csvFile = csvInput.files[0] || null;
+    document.getElementById('csvLabel').textContent = csvFile
+      ? `✓ ${csvFile.name}` : 'Drop CSV file here or click to browse';
+    document.getElementById('csvZone').classList.toggle('has-file', !!csvFile);
+    if (csvFile) {
+      const reader = new FileReader();
+      reader.onload = e => { csvEmployeeNames = parseCSVNames(e.target.result); renderPhotoList(); };
+      reader.readAsText(csvFile);
+    } else {
+      csvEmployeeNames = [];
+      renderPhotoList();
+    }
+    updateUploadBtn();
+  });
+
+  function splitCSVRow(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+      else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  function parseCSVNames(text) {
+    const cleaned = text.replace(/^﻿/, '').trim();
+    const lines = cleaned.split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+    const firstRow = splitCSVRow(lines[0]).map(h =>
+      h.replace(/[^\x20-\x7E]/g, '').toLowerCase().trim()
+    );
+    const nameIdx = firstRow.findIndex(h => h === 'full name' || h === 'name');
+    if (nameIdx !== -1) {
+      // has header row — skip it, use the named column
+      return lines.slice(1).map(l => (splitCSVRow(l)[nameIdx] || '').trim()).filter(Boolean);
+    } else {
+      // no header row — column 0 is the name
+      return lines.map(l => (splitCSVRow(l)[0] || '').trim()).filter(Boolean);
+    }
+  }
+
+  photoInput.addEventListener('change', () => {
+    const incoming = Array.from(photoInput.files);
+    const existingNames = new Set(photoFiles.map(f => f.name));
+    incoming.forEach(f => {
+      if (existingNames.has(f.name)) {
+        duplicateFiles.push(f);
+      } else {
+        photoFiles.push(f);
+        existingNames.add(f.name);
+      }
+    });
+    photoInput.value = '';
+    updatePhotoZone();
+  });
+
+  function updatePhotoZone() {
+    const label = document.getElementById('photoLabel');
+    const sub = document.getElementById('photoSub');
+    if (photoFiles.length) {
+      label.textContent = `✓ ${photoFiles.length} photo${photoFiles.length !== 1 ? 's' : ''} selected`;
+      sub.textContent = 'Click or drop to add more from another folder';
+    } else {
+      label.textContent = 'Drop PNG photos here or click to browse';
+      sub.textContent = 'PNG only — ensures transparent backgrounds';
+    }
+    document.getElementById('photoZone').classList.toggle('has-file', photoFiles.length > 0);
+    renderPhotoList();
+    updateUploadBtn();
+  }
+
+  function renderPhotoList() {
+    const list = document.getElementById('photoList');
+    list.innerHTML = '';
+    const nameKeys = new Set(csvEmployeeNames.map(n => normalizeNameKey(n)));
+
+    photoFiles.forEach((file, i) => {
+      const base = file.name.replace(/\.[^.]+$/, '');
+      const matched = !csvFile || nameKeys.has(normalizeNameKey(base));
+      const item = document.createElement('div');
+      item.className = `photo-list-item${matched ? '' : ' no-match'}`;
+      item.innerHTML = `<span>${esc(file.name)}</span><button class="btn-icon" title="Remove">×</button>`;
+      item.querySelector('.btn-icon').addEventListener('click', () => {
+        photoFiles.splice(i, 1);
+        updatePhotoZone();
+      });
+      list.appendChild(item);
+    });
+
+    duplicateFiles.forEach((file, i) => {
+      const item = document.createElement('div');
+      item.className = 'photo-list-item duplicate';
+      item.innerHTML = `
+        <span>${esc(file.name)}</span>
+        <span class="photo-duplicate-badge">Duplicate</span>
+        <button class="btn-icon" title="Remove">×</button>`;
+      item.querySelector('.btn-icon').addEventListener('click', () => {
+        duplicateFiles.splice(i, 1);
+        renderPhotoList();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function updateUploadBtn() {
+    if (activeMode === 'csv') {
+      document.getElementById('uploadBtn').disabled = !csvFile;
+    } else {
+      document.getElementById('uploadBtn').disabled = manualEmployees.length === 0;
+    }
+  }
+
+  // Drag & drop
+  ['csvZone', 'photoZone', 'manualPhotoZone'].forEach(id => {
+    const zone = document.getElementById(id);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const input = zone.querySelector('input[type="file"]');
+      const dt = new DataTransfer();
+      Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change'));
+    });
+  });
+
+  // Mode tabs
+  document.getElementById('tabCsv').addEventListener('click', () => {
+    activeMode = 'csv';
+    document.getElementById('tabCsv').classList.add('active');
+    document.getElementById('tabManual').classList.remove('active');
+    document.getElementById('csvMode').style.display = '';
+    document.getElementById('manualMode').style.display = 'none';
+    updateUploadBtn();
+  });
+
+  document.getElementById('tabManual').addEventListener('click', () => {
+    activeMode = 'manual';
+    document.getElementById('tabManual').classList.add('active');
+    document.getElementById('tabCsv').classList.remove('active');
+    document.getElementById('manualMode').style.display = '';
+    document.getElementById('csvMode').style.display = 'none';
+    updateUploadBtn();
+  });
+
+  // Mirrors server's normalizeNameKey for client-side live matching
+  function normalizeNameKey(str) {
+    return str.toLowerCase()
+      .replace(/[,]+/g, ' ')
+      .replace(/[\s_\-\.]+/g, ' ')
+      .trim().split(' ').filter(Boolean).sort().join(' ');
+  }
+
+  function checkPhotoMatch() {
+    const hint = document.getElementById('photoMatchHint');
+    if (!currentManualPhoto) { hint.style.display = 'none'; return; }
+    const nameVal = document.getElementById('manualName').value.trim();
+    hint.style.display = '';
+    if (!nameVal) {
+      hint.className = 'photo-match-hint neutral';
+      hint.textContent = 'Type a name above to verify the match';
+      return;
+    }
+    const photoBase = currentManualPhoto.name.replace(/\.[^.]+$/, '');
+    if (normalizeNameKey(nameVal) === normalizeNameKey(photoBase)) {
+      hint.className = 'photo-match-hint match';
+      hint.textContent = '✓ Photo filename matches this name';
+    } else {
+      hint.className = 'photo-match-hint mismatch';
+      hint.textContent = `⚠ Full Name doesn't match Filename`;
+    }
+  }
+
+  // Manual photo input
+  const manualPhotoInput = document.getElementById('manualPhotoInput');
+  manualPhotoInput.addEventListener('change', () => {
+    currentManualPhoto = manualPhotoInput.files[0] || null;
+    document.getElementById('manualPhotoLabel').textContent = currentManualPhoto
+      ? `✓ ${currentManualPhoto.name}` : 'Photo (optional) — click or drop';
+    document.getElementById('manualPhotoZone').classList.toggle('has-file', !!currentManualPhoto);
+    checkPhotoMatch();
+  });
+
+  document.getElementById('manualName').addEventListener('input', checkPhotoMatch);
+
+  // Add employee button + Enter key on fields
+  document.getElementById('addEmployeeBtn').addEventListener('click', addEmployee);
+  ['manualName', 'manualPosition', 'manualDept'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') addEmployee(); });
+  });
+
+  function addEmployee() {
+    const name = document.getElementById('manualName').value.trim();
+    const position = document.getElementById('manualPosition').value.trim();
+    const dept = document.getElementById('manualDept').value.trim();
+    if (!name || !position) {
+      setError('Please fill in Full Name and Position.');
+      return;
+    }
+    const issues = [];
+    if (!dept) issues.push('department is empty');
+    if (!currentManualPhoto) {
+      issues.push('no photo uploaded');
+    } else {
+      const photoBase = currentManualPhoto.name.replace(/\.[^.]+$/, '');
+      if (normalizeNameKey(name) !== normalizeNameKey(photoBase)) {
+        issues.push('filename doesn\'t match Full Name');
+      }
+    }
+    if (issues.length) {
+      const msg = issues.join(' and ');
+      document.getElementById('deptConfirmMsg').textContent =
+        msg.charAt(0).toUpperCase() + msg.slice(1) + ' — add anyway?';
+      document.getElementById('addEmployeeBtn').style.display = 'none';
+      document.getElementById('deptConfirm').style.display = '';
+      document.getElementById('manualMode').classList.add('fields-locked');
+      return;
+    }
+    setError('');
+    commitEmployee(name, position, dept);
+  }
+
+  function commitEmployee(name, position, dept) {
+    manualEmployees.push({ fullName: name, position, department: dept, photoFile: currentManualPhoto });
+    renderManualList();
+    document.getElementById('manualName').value = '';
+    document.getElementById('manualPosition').value = '';
+    document.getElementById('manualDept').value = '';
+    currentManualPhoto = null;
+    manualPhotoInput.value = '';
+    document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
+    document.getElementById('manualPhotoZone').classList.remove('has-file');
+    document.getElementById('photoMatchHint').style.display = 'none';
+    hideDeptConfirm();
+    updateUploadBtn();
+    document.getElementById('manualName').focus();
+  }
+
+  function hideDeptConfirm() {
+    document.getElementById('addEmployeeBtn').style.display = '';
+    document.getElementById('deptConfirm').style.display = 'none';
+    document.getElementById('manualMode').classList.remove('fields-locked');
+  }
+
+  document.getElementById('deptConfirmYes').addEventListener('click', () => {
+    const name = document.getElementById('manualName').value.trim();
+    const position = document.getElementById('manualPosition').value.trim();
+    const dept = document.getElementById('manualDept').value.trim();
+    setError('');
+    commitEmployee(name, position, dept);
+  });
+
+  document.getElementById('deptConfirmNo').addEventListener('click', () => {
+    hideDeptConfirm();
+    document.getElementById('manualDept').focus();
+  });
+
+  function renderManualList() {
+    const list = document.getElementById('manualList');
+    list.innerHTML = '';
+    manualEmployees.forEach((emp, i) => {
+      const item = document.createElement('div');
+      item.className = 'manual-item';
+      item.innerHTML = `
+        <div class="manual-item-info">
+          <div class="manual-item-name">${esc(emp.fullName)}</div>
+          <div class="manual-item-detail">${esc(emp.position)} · ${esc(emp.department)}</div>
+        </div>
+        <span class="manual-item-photo ${emp.photoFile ? 'has' : 'none'}">${emp.photoFile ? '✓ Photo' : 'No photo'}</span>
+        <button class="btn-icon edit" title="Edit">✎</button>
+        <button class="btn-icon" title="Remove">×</button>`;
+
+      item.querySelector('.btn-icon.edit').addEventListener('click', () => {
+        const e = manualEmployees[i];
+        document.getElementById('manualName').value = e.fullName;
+        document.getElementById('manualPosition').value = e.position;
+        document.getElementById('manualDept').value = e.department;
+        currentManualPhoto = e.photoFile;
+        const label = document.getElementById('manualPhotoLabel');
+        const zone = document.getElementById('manualPhotoZone');
+        if (e.photoFile) {
+          label.textContent = `✓ ${e.photoFile.name}`;
+          zone.classList.add('has-file');
+        } else {
+          label.textContent = 'Photo (optional) — click or drop';
+          zone.classList.remove('has-file');
+        }
+        manualEmployees.splice(i, 1);
+        renderManualList();
+        updateUploadBtn();
+        checkPhotoMatch();
+        document.getElementById('manualName').focus();
+      });
+
+      item.querySelectorAll('.btn-icon')[1].addEventListener('click', () => {
+        manualEmployees.splice(i, 1);
+        renderManualList();
+        updateUploadBtn();
+      });
+
+      list.appendChild(item);
+    });
+  }
+
+  function buildPrepareForm() {
+    const form = new FormData();
+    if (activeMode === 'csv') {
+      form.append('csv', csvFile);
+      photoFiles.forEach(f => form.append('photos', f));
+    } else {
+      const csvContent = 'Full Name,Position,Department\n' +
+        manualEmployees.map(e =>
+          `"${e.fullName.replace(/"/g, '""')}","${e.position.replace(/"/g, '""')}","${e.department.replace(/"/g, '""')}"`
+        ).join('\n');
+      form.append('csv', new Blob([csvContent], { type: 'text/csv' }), 'employees.csv');
+      manualEmployees.forEach(e => {
+        if (e.photoFile)
+          form.append('photos', new File([e.photoFile], `${e.fullName}.png`, { type: e.photoFile.type }));
+      });
+    }
+    return form;
+  }
+
+  async function submitPrepare() {
+    const res = await fetch('/prepare', { method: 'POST', body: buildPrepareForm() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    currentJobId = data.jobId;
+    currentEmployees = data.employees;
+    renderPreview(data.employees);
+    renderPreviewSummary(data.employees);
+    return data;
+  }
+
+  // Step 1: Upload
+  document.getElementById('uploadBtn').addEventListener('click', async () => {
+    setError('');
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+    try {
+      await submitPrepare();
+      goToStep(2);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Upload & Preview';
+    }
+  });
+
+  function renderPreviewSummary(employees) {
+    const el = document.getElementById('previewSummary');
+    const missingEmployees = employees.filter(e => !e.photoFound);
+    const empKeys = new Set(employees.map(e => normalizeNameKey(e.fullName)));
+    const orphanPhotos = activeMode === 'csv'
+      ? photoFiles.filter(f => !empKeys.has(normalizeNameKey(f.name.replace(/\.[^.]+$/, ''))))
+      : [];
+
+    const lines = [];
+
+    if (orphanPhotos.length > 0) {
+      const id = 'orphan-details';
+      const items = orphanPhotos.map(f => `<li>${esc(f.name)}</li>`).join('');
+      lines.push(`<div>
+        <span style="color:#f59e0b">⚠ ${orphanPhotos.length} uploaded photo${orphanPhotos.length !== 1 ? 's' : ''} didn't match any details and will be ignored.</span>
+        <span class="details-toggle" onclick="document.getElementById('${id}').classList.toggle('open');this.textContent=document.getElementById('${id}').classList.contains('open')?'Hide details':'See details'">See details</span>
+        <ul class="details-list" id="${id}">${items}</ul>
+      </div>`);
+    }
+
+    if (missingEmployees.length > 0) {
+      const id = 'missing-details';
+      const items = missingEmployees.map(e => `<li>${esc(e.fullName)}</li>`).join('');
+      lines.push(`<div>
+        <span style="color:#ff5577">⚠ ${missingEmployees.length} employee${missingEmployees.length !== 1 ? 's' : ''} ${missingEmployees.length !== 1 ? 'have' : 'has'} no matching photo — poster will not be rendered.</span>
+        <span class="details-toggle" onclick="document.getElementById('${id}').classList.toggle('open');this.textContent=document.getElementById('${id}').classList.contains('open')?'Hide details':'See details'">See details</span>
+        <ul class="details-list" id="${id}">${items}</ul>
+      </div>`);
+    }
+
+    if (!lines.length)
+      lines.push(`<span style="color:#22c55e">✓ All ${employees.length} employee${employees.length !== 1 ? 's' : ''} have matching photos</span>`);
+
+    el.innerHTML = lines.join('');
+    el.style.cssText = 'display:block;font-size:13px;padding:12px 16px;background:#1c1c1c;border:1px solid #262626;border-radius:10px;line-height:1.8;margin-bottom:16px';
+  }
+
+  function renderPreview(employees) {
+    const hasMissing = employees.some(e => !e.photoFound);
+    const noneHavePhoto = employees.every(e => !e.photoFound);
+    document.getElementById('generateBtn').disabled = noneHavePhoto;
+
+    const th5 = document.querySelector('.preview-table thead tr th:nth-child(5)');
+    if (th5) th5.style.display = hasMissing ? '' : 'none';
+
+    const tbody = document.getElementById('previewBody');
+    tbody.innerHTML = '';
+    employees.forEach(emp => {
+      const tr = document.createElement('tr');
+      if (!emp.photoFound) tr.className = 'photo-missing';
+      tr.innerHTML = `
+        <td>${esc(emp.fullName)}</td>
+        <td style="color:#999">${esc(emp.position)}</td>
+        <td style="color:#999">${esc(emp.department)}</td>
+        <td><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">
+          ${emp.photoFound ? '✓ Found' : '✗ Missing'}
+        </span></td>
+        ${hasMissing ? `<td>${!emp.photoFound ? `<label class="upload-inline">
+          ↑ Upload Photo
+          <input type="file" accept=".png,.jpg,.jpeg" />
+        </label>` : ''}</td>` : ''}`;
+      if (!emp.photoFound) {
+        tr.querySelector('input[type="file"]').addEventListener('change', async function () {
+          const file = this.files[0];
+          if (!file) return;
+          const renamed = new File([file], `${emp.fullName}.png`, { type: file.type });
+          if (activeMode === 'csv') {
+            const key = normalizeNameKey(emp.fullName);
+            photoFiles = photoFiles.filter(f => normalizeNameKey(f.name.replace(/\.[^.]+$/, '')) !== key);
+            photoFiles.push(renamed);
+            updatePhotoZone();
+          } else {
+            const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
+            if (manualEmp) manualEmp.photoFile = renamed;
+          }
+          try { await submitPrepare(); } catch (err) { setError(err.message); }
+        });
+      }
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Step 2: Generate
+  document.getElementById('generateBtn').addEventListener('click', () => {
+    if (!currentJobId) return;
+    goToStep(3);
+    runGenerate(currentJobId);
+  });
+
+  document.getElementById('backBtn').addEventListener('click', () => goToStep(1));
+
+  function runGenerate(jobId) {
+    const list = document.getElementById('progressList');
+    list.innerHTML = '';
+    document.getElementById('gallerySection').style.display = 'none';
+    document.getElementById('progressTitle').textContent = 'Generating...';
+
+    const rows = {};
+    const LIMIT = 5;
+
+    // Pre-populate only employees WITH photos as queued (others won't be generated)
+    const queueEmps = currentEmployees
+      .map((emp, i) => ({ emp, key: `row-${i + 1}` }))
+      .filter(({ emp }) => emp.photoFound);
+
+    queueEmps.forEach(({ emp, key }, qi) => {
+      const div = document.createElement('div');
+      div.className = 'progress-row queued';
+      div.id = key;
+      div.innerHTML = `
+        <div class="progress-icon queued">○</div>
+        <div class="progress-info">
+          <span class="progress-name">${esc(emp.fullName)}</span>
+          <span class="progress-detail">${esc(emp.position || '')}${emp.position && emp.department ? ' · ' : ''}${esc(emp.department || '')}</span>
+        </div>
+        <span class="progress-status"></span>`;
+      rows[key] = div;
+      if (qi < LIMIT) list.appendChild(div);
+    });
+
+    if (queueEmps.length > LIMIT) {
+      const remaining = queueEmps.length - LIMIT;
+      const moreEl = document.createElement('div');
+      moreEl.id = 'queue-more';
+      moreEl.style.cssText = 'padding:10px 0 2px;text-align:center';
+      moreEl.innerHTML = `<span style="font-size:13px;color:#555;text-decoration:underline;cursor:pointer">See ${remaining} more queued</span>`;
+      moreEl.querySelector('span').addEventListener('click', () => {
+        moreEl.remove();
+        queueEmps.slice(LIMIT).forEach(({ key }) => {
+          if (rows[key]) list.appendChild(rows[key]);
+        });
+      });
+      list.appendChild(moreEl);
+    }
+
+    const evtSource = new EventSource(`/generate/${jobId}`);
+
+    evtSource.onmessage = e => {
+      const event = JSON.parse(e.data);
+
+      if (event.type === 'progress') {
+        const key = `row-${event.row}`;
+        const div = rows[key];
+        if (div) {
+          div.className = `progress-row ${event.status}`;
+          const icon = div.querySelector('.progress-icon');
+          icon.className = `progress-icon ${event.status === 'processing' ? 'spinning' : event.status}`;
+          icon.style.opacity = event.status === 'skipped' ? '0.4' : '';
+          icon.textContent = statusIcon(event.status);
+          div.querySelector('.progress-status').textContent = event.message || '';
+          // If row was hidden (in "see more"), bring it into view when it starts processing
+          if (!div.parentElement && event.status === 'processing') {
+            const qm = document.getElementById('queue-more');
+            qm ? list.insertBefore(div, qm) : list.appendChild(div);
+          }
+        }
+
+      } else if (event.type === 'complete') {
+        evtSource.close();
+        document.getElementById('progressTitle').textContent = `Complete · ${event.count}/${currentEmployees.length}`;
+
+        // Rebuild final list: ALL employees — photo ones from rows, non-photo ones as new ✕ entries
+        const allRows = currentEmployees.map((emp, i) => {
+          const key = `row-${i + 1}`;
+          if (rows[key]) return rows[key];
+          const div = document.createElement('div');
+          div.className = 'progress-row skipped';
+          div.innerHTML = `
+            <div class="progress-icon skipped" style="opacity:0.5">✕</div>
+            <div class="progress-info">
+              <span class="progress-name" style="opacity:0.4">${esc(emp.fullName)}</span>
+              <span class="progress-detail">${esc(emp.position || '')}${emp.position && emp.department ? ' · ' : ''}${esc(emp.department || '')}</span>
+            </div>
+            <span class="progress-status" style="color:#555">No photo</span>`;
+          rows[key] = div;
+          return div;
+        });
+        list.innerHTML = '';
+        const LIMIT = 5;
+        allRows.slice(0, LIMIT).forEach(div => list.appendChild(div));
+        if (allRows.length > LIMIT) {
+          const remaining = allRows.length - LIMIT;
+          const moreEl = document.createElement('div');
+          moreEl.style.cssText = 'padding:10px 0 2px;text-align:center';
+          const moreSpan = document.createElement('span');
+          moreSpan.style.cssText = 'font-size:13px;color:#555;text-decoration:underline;cursor:pointer';
+          moreSpan.textContent = `See ${remaining} more`;
+          let expanded = false;
+          moreSpan.addEventListener('click', () => {
+            if (!expanded) {
+              expanded = true;
+              allRows.slice(LIMIT).forEach(div => list.insertBefore(div, moreEl));
+              moreSpan.textContent = 'See less';
+            } else {
+              expanded = false;
+              allRows.slice(LIMIT).forEach(div => div.remove());
+              moreSpan.textContent = `See ${remaining} more`;
+            }
+          });
+          moreEl.appendChild(moreSpan);
+          list.appendChild(moreEl);
+        }
+
+        showGallery(jobId, event.count);
+
+      } else if (event.type === 'error') {
+        evtSource.close();
+        setError(event.message);
+      }
+    };
+
+    evtSource.onerror = () => {
+      evtSource.close();
+      setError('Connection lost. Please try again.');
+    };
+  }
+
+  function showGallery(jobId, count) {
+    currentSuffix = getFileSuffix();
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
+
+    document.getElementById('doneCount').textContent =
+      `${count} poster${count !== 1 ? 's' : ''} ready`;
+
+    // Use currentEmployees with photos — maps 1:1 to server's job.posters array
+    const photoEmployees = currentEmployees.filter(e => e.photoFound);
+    photoEmployees.forEach((emp, index) => {
+      const name = emp.fullName;
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.innerHTML = `
+        <img src="/preview/${jobId}/${index}" alt="${esc(name)}" loading="lazy" />
+        <div class="gallery-footer">
+          <div class="gallery-label">${esc(name)}</div>
+          <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
+          <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${index}" download="${esc(lastFirst(name))}-${currentSuffix}.png">↓ Save</a>
+        </div>`;
+      item.querySelector('img').addEventListener('click', function() { openLightbox(this.src, name); });
+      item.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(index, emp); });
+      gallery.appendChild(item);
+    });
+
+    document.getElementById('gallerySection').style.display = 'block';
+  }
+
+  // Lightbox
+  document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+  document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  });
+
+  function openLightbox(src, name) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightboxName').textContent = name;
+    document.getElementById('lightbox').classList.add('open');
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lightboxImg').src = '';
+  }
+
+  // Download
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (!currentJobId) return;
+    const a = document.createElement('a');
+    a.href = `/download/${currentJobId}?suffix=${encodeURIComponent(currentSuffix)}`;
+    a.download = `${currentSuffix}.zip`;
+    a.click();
+  });
+
+  // Restart
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    currentJobId = null;
+    csvFile = null;
+    photoFiles = [];
+    duplicateFiles = [];
+    csvEmployeeNames = [];
+    manualEmployees = [];
+    currentManualPhoto = null;
+    csvInput.value = '';
+    photoInput.value = '';
+    manualPhotoInput.value = '';
+    document.getElementById('csvLabel').textContent = 'Drop CSV file here or click to browse';
+    document.getElementById('photoLabel').textContent = 'Drop PNG photos here or click to browse';
+    document.getElementById('photoSub').textContent = 'PNG only — ensures transparent backgrounds';
+    renderPhotoList();
+    document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
+    document.getElementById('manualName').value = '';
+    document.getElementById('manualPosition').value = '';
+    document.getElementById('manualDept').value = '';
+    document.getElementById('csvZone').classList.remove('has-file');
+    document.getElementById('photoZone').classList.remove('has-file');
+    document.getElementById('manualPhotoZone').classList.remove('has-file');
+    document.getElementById('photoMatchHint').style.display = 'none';
+    renderManualList();
+    setError('');
+    goToStep(1);
+  });
+
+  function goToStep(n) {
+    document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i + 1 === n));
+  }
+
+  function setError(msg) {
+    const b = document.getElementById('errorBanner');
+    b.textContent = msg;
+    b.classList.toggle('show', !!msg);
+  }
+
+  function getFileSuffix() {
+    const map = {
+      'tpl-new-employee': 'New Employee Poster',
+      'tpl-birthday':     'Birthday Poster',
+      'tpl-anniversary':  'Work Anniversary Poster',
+    };
+    const active = document.querySelector('.template-option.active');
+    const cls = active && Array.from(active.classList).find(c => c.startsWith('tpl-'));
+    const tplName = (cls && map[cls]) || 'Poster';
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    return `${tplName}-${mm}${dd}${yy}`;
+  }
+
+  function statusIcon(s) {
+    if (s === 'queued')    return '○';
+    if (s === 'processing') return '↻';
+    if (s === 'done')      return '✓';
+    if (s === 'skipped')   return '–';
+    return '✕';
+  }
+
+  // Edit modal
+  let editIndex = -1;
+  let editOriginalName = '';
+  let editPhotoFile = null;
+
+  function openEditModal(index, emp) {
+    editIndex = index;
+    editOriginalName = emp.fullName;
+    editPhotoFile = null;
+    document.getElementById('editName').value = emp.fullName;
+    document.getElementById('editPosition').value = emp.position;
+    document.getElementById('editDept').value = emp.department;
+    document.getElementById('editPhotoLabel').textContent = 'Replace photo (optional)';
+    document.getElementById('editPhotoInput').value = '';
+    document.getElementById('editPhotoZone').classList.remove('has-file');
+    document.getElementById('editPhotoMatchHint').style.display = 'none';
+    document.getElementById('editMismatchConfirm').style.display = 'none';
+    document.getElementById('editModalOverlay').classList.add('open');
+  }
+
+  function checkEditPhotoMatch() {
+    const hint = document.getElementById('editPhotoMatchHint');
+    if (!editPhotoFile) { hint.style.display = 'none'; return; }
+    const nameVal = document.getElementById('editName').value.trim();
+    hint.style.display = '';
+    if (!nameVal) {
+      hint.className = 'photo-match-hint neutral';
+      hint.textContent = 'Type a name above to verify the match';
+      return;
+    }
+    const photoBase = editPhotoFile.name.replace(/\.[^.]+$/, '');
+    if (normalizeNameKey(nameVal) === normalizeNameKey(photoBase)) {
+      hint.className = 'photo-match-hint match';
+      hint.textContent = '✓ Photo filename matches this name';
+    } else {
+      hint.className = 'photo-match-hint mismatch';
+      hint.textContent = `⚠ Full Name doesn't match Filename`;
+    }
+  }
+
+  document.getElementById('editPhotoInput').addEventListener('change', () => {
+    editPhotoFile = document.getElementById('editPhotoInput').files[0] || null;
+    document.getElementById('editPhotoLabel').textContent = editPhotoFile
+      ? `✓ ${editPhotoFile.name}` : 'Replace photo (optional)';
+    document.getElementById('editPhotoZone').classList.toggle('has-file', !!editPhotoFile);
+    checkEditPhotoMatch();
+  });
+
+  document.getElementById('editName').addEventListener('input', checkEditPhotoMatch);
+
+  document.getElementById('editCancelBtn').addEventListener('click', () => {
+    document.getElementById('editModalOverlay').classList.remove('open');
+  });
+
+  document.getElementById('editModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('editModalOverlay'))
+      document.getElementById('editModalOverlay').classList.remove('open');
+  });
+
+  async function doRegenerate() {
+    const btn = document.getElementById('editSaveBtn');
+    const newName = document.getElementById('editName').value.trim();
+    const newPos  = document.getElementById('editPosition').value.trim();
+    const newDept = document.getElementById('editDept').value.trim();
+
+    btn.disabled = true;
+    btn.textContent = 'Regenerating...';
+    document.getElementById('editMismatchConfirm').style.display = 'none';
+
+    const form = new FormData();
+    form.append('fullName', newName);
+    form.append('position', newPos);
+    form.append('department', newDept);
+    form.append('originalName', editOriginalName);
+    if (editPhotoFile) form.append('photo', editPhotoFile);
+
+    try {
+      const res = await fetch(`/regenerate/${currentJobId}/${editIndex}`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Regeneration failed');
+
+      const photoEmps = currentEmployees.filter(e => e.photoFound);
+      if (photoEmps[editIndex]) {
+        photoEmps[editIndex].fullName   = newName;
+        photoEmps[editIndex].position   = newPos;
+        photoEmps[editIndex].department = newDept;
+      }
+
+      const items = document.querySelectorAll('#gallery .gallery-item');
+      if (items[editIndex]) {
+        const img = items[editIndex].querySelector('img');
+        if (img) img.src = `/preview/${currentJobId}/${editIndex}?t=${Date.now()}`;
+        const lbl = items[editIndex].querySelector('.gallery-label');
+        if (lbl) lbl.textContent = newName;
+        const dl = items[editIndex].querySelector('.gallery-dl');
+        if (dl) { dl.download = `${lastFirst(newName)}-${currentSuffix}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
+      }
+
+      document.getElementById('editModalOverlay').classList.remove('open');
+      setError('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Regenerate';
+    }
+  }
+
+  document.getElementById('editSaveBtn').addEventListener('click', async () => {
+    const newName = document.getElementById('editName').value.trim();
+    const newPos  = document.getElementById('editPosition').value.trim();
+    if (!newName || !newPos) { setError('Full Name and Position are required.'); return; }
+
+    // Check for photo filename mismatch
+    if (editPhotoFile) {
+      const photoBase = editPhotoFile.name.replace(/\.[^.]+$/, '');
+      if (normalizeNameKey(newName) !== normalizeNameKey(photoBase)) {
+        document.getElementById('editMismatchMsg').textContent =
+          `Full Name doesn't match Filename — proceed anyway?`;
+        document.getElementById('editMismatchConfirm').style.display = '';
+        return;
+      }
+    }
+
+    await doRegenerate();
+  });
+
+  document.getElementById('editMismatchYes').addEventListener('click', () => doRegenerate());
+  document.getElementById('editMismatchNo').addEventListener('click', () => {
+    document.getElementById('editMismatchConfirm').style.display = 'none';
+  });
+
+  function lastFirst(name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    const last = parts[parts.length - 1];
+    const first = parts.slice(0, -1).join(' ');
+    return `${last}, ${first}`;
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

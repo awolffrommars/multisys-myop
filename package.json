@@ -1,0 +1,22 @@
+{
+  "name": "make-your-own-poster",
+  "version": "1.0.0",
+  "description": "Generate Multisys announcement posters (New Employee, Birthday) from CSV or manual entry",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:v1": "node server.v1.js"
+  },
+  "dependencies": {
+    "archiver": "^6.0.1",
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "multer": "^2.0.0",
+    "puppeteer": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {}
+}

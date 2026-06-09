@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Birthday Poster</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1920px;
+      height: 1081px;
+      overflow: hidden;
+      font-family: 'Montserrat', 'Helvetica Neue', 'Arial', sans-serif;
+    }
+
+    /* ─── POSITION TUNING ─────────────────────────────────────────
+       Adjust these values if the overlays don't align with your
+       template. All values are in pixels on a 1920×1081 canvas.
+       Source template: Birthday Poster_Template.png (2561×1441)
+       Scale factor from template to canvas: ≈ 0.75
+    ──────────────────────────────────────────────────────────────── */
+    :root {
+      /* Derived from reference template (2561×1441) → canvas (1920×1081) at 0.75× */
+      --photo-left:   976px;  /* left edge of salmon placeholder  */
+      --photo-top:    143px;  /* top of salmon placeholder        */
+      --photo-width:  827px;  /* salmon right (1803) - left (976) */
+      --photo-height: 938px;  /* 1081 - 143                       */
+
+      --text-left:    174px;  /* matches [Position]/[Department]/[Division] x-start; covers [FULL NAME] at x=202 */
+      --text-width:   780px;  /* wider to avoid wrapping at 50% larger font; photo box starts at x=976 */
+      --name-top:     675px;  /* 685 - 10 nudge up */
+      --pos-top:      755px;  /* 730 + 25 */
+      --dept-top:     805px;  /* 790 + 15 */
+      --div-top:      860px;  /* 855 + 5  */
+
+      --date-right:    99px;  /* template x=2429 → canvas right=99 */
+      --date-top:      81px;  /* 86 - 5 nudge up */
+    }
+
+    .poster {
+      width: 1920px;
+      height: 1081px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .template-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Employee photo — right side of the canvas */
+    .photo-overlay {
+      position: absolute;
+      left: var(--photo-left);
+      top: var(--photo-top);
+      width: var(--photo-width);
+      height: var(--photo-height);
+      overflow: hidden;
+      z-index: 10;
+      background-color: transparent;
+    }
+
+    .photo-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+    }
+
+    /* Text block — flex column anchored at name-top so position/dept/div
+       push down naturally when the name wraps to multiple lines */
+    .text-block {
+      position: absolute;
+      left: var(--text-left);
+      top: var(--name-top);
+      width: var(--text-width);
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      z-index: 10;
+    }
+
+    .employee-name {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 57px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+      white-space: nowrap;
+      margin-bottom: 23px;
+    }
+
+    .employee-position {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 36px;
+      font-weight: 500;
+      color: #fff;
+      letter-spacing: 0px;
+      line-height: 1.2;
+      word-wrap: break-word;
+      margin-bottom: 14px;
+    }
+
+    .employee-department {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 36px;
+      font-weight: 400;
+      color: #fff;
+      line-height: 1.2;
+      word-wrap: break-word;
+      margin-bottom: 19px;
+    }
+
+    .employee-division {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 36px;
+      font-weight: 400;
+      color: #fff;
+      line-height: 1.2;
+      word-wrap: break-word;
+    }
+
+    .birthday-date {
+      position: absolute;
+      right: var(--date-right);
+      top: var(--date-top);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 38px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: right;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+
+    <img class="template-bg" src="{{TEMPLATE_BASE64}}" alt="" />
+
+    <div class="photo-overlay">
+      <img src="{{PHOTO_BASE64}}" alt="" />
+    </div>
+
+    <div class="text-block">
+      <div class="employee-name">{{FULL_NAME}}</div>
+      <div class="employee-position">{{POSITION}}</div>
+      <div class="employee-department">{{DEPARTMENT}}</div>
+      <div class="employee-division">{{DIVISION}}</div>
+    </div>
+    <div class="birthday-date">{{BIRTHDAY_DATE}}</div>
+
+  </div>
+</body>
+</html>

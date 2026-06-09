@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Work Anniversary Poster</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1920px;
+      height: 1081px;
+      overflow: hidden;
+      font-family: 'Montserrat', 'Helvetica Neue', 'Arial', sans-serif;
+    }
+
+    /* ─── POSITION TUNING ─────────────────────────────────────────
+       Source template: Work Anniversary_Template.png (1920×1080)
+       Canvas: 1920×1081 — 1:1, no scale factor.
+       Photo orange area measured from template PNG:
+         x: 1155–1684 (529px wide, center=1419)
+         y: 151–778 (627px tall)
+       YEARS white strip: y=778–972 (center y≈875)
+    ──────────────────────────────────────────────────────────────── */
+
+    .poster {
+      width: 1920px;
+      height: 1081px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .template-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Photo — covers the orange placeholder inside the polaroid */
+    .photo-overlay {
+      position: absolute;
+      left: 1155px;
+      top: 151px;
+      width: 529px;
+      height: 627px;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .photo-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+      transform: scale(1.2);
+      transform-origin: center top;
+    }
+
+    /* First name — aligned to template placeholder top (y=282) */
+    .employee-firstname {
+      position: absolute;
+      left: 125px;
+      top: 277px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 95px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -1px;
+      line-height: 1.0;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    /* Last name — aligned to template second-name placeholder top (y=406) */
+    .employee-lastname {
+      position: absolute;
+      left: 125px;
+      top: 396px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 95px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -1px;
+      line-height: 1.0;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    /* Position — aligned to template [POSITION] placeholder (y=656) */
+    .employee-position {
+      position: absolute;
+      left: 118px;
+      top: 654px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 35px;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+      z-index: 10;
+    }
+
+    /* Division — aligned to template [Division] placeholder (y=735) */
+    .employee-division {
+      position: absolute;
+      left: 118px;
+      top: 733px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 32px;
+      font-weight: 400;
+      color: #fff;
+      line-height: 1.2;
+      z-index: 10;
+    }
+
+    /* Department — aligned to template [Department] placeholder (y=815) */
+    .employee-department {
+      position: absolute;
+      left: 118px;
+      top: 813px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 32px;
+      font-weight: 400;
+      color: #fff;
+      line-height: 1.2;
+      z-index: 10;
+    }
+
+    /* "WORK ANNIVERSARY" — vertical text reading bottom-to-top, in the right white border */
+    .work-anniversary-label {
+      position: absolute;
+      left: 1626px;
+      top: 151px;
+      width: 80px;
+      height: 627px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+    }
+
+    .work-anniversary-label span {
+      display: block;
+      transform: rotate(-90deg);
+      white-space: nowrap;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      color: #f4f1f1;
+      text-transform: uppercase;
+    }
+
+    /* Years — centered at x=1419, within white strip (y=778–972) */
+    .years-overlay {
+      position: absolute;
+      left: 1419px;
+      top: 875px;
+      transform: translate(-50%, -50%);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 89px;
+      font-weight: 800;
+      color: #eb6004;
+      letter-spacing: 2px;
+      white-space: nowrap;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+
+    <img class="template-bg" src="{{TEMPLATE_BASE64}}" alt="" />
+
+    <div class="photo-overlay">
+      <img src="{{PHOTO_BASE64}}" alt="" />
+    </div>
+
+    <div class="employee-firstname">{{FIRST_NAME}}</div>
+    <div class="employee-lastname">{{LAST_NAME}}</div>
+
+    <div class="employee-position">{{POSITION}}</div>
+    <div class="employee-division">{{DIVISION}}</div>
+    <div class="employee-department">{{DEPARTMENT}}</div>
+
+    <div class="work-anniversary-label"><span>WORK ANNIVERSARY</span></div>
+
+    <div class="years-overlay">{{ANNIVERSARY_YEARS}} YEARS</div>
+
+  </div>
+</body>
+</html>
