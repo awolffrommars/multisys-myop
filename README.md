@@ -52,6 +52,15 @@ npm start
 
 Then open `http://localhost:3000` in your browser.
 
+### Restarting the server
+
+If you need to restart after making changes:
+
+```bash
+lsof -ti :3000 | xargs kill -9
+nohup node server.js > /tmp/poster-server.log 2>&1 &
+```
+
 ## Live Site
 
 The app is also deployed at: https://awolffrommars-multisys-myop.hf.space
