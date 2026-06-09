@@ -92,7 +92,7 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       html = html.replace('</head>', '<style>.employee-name { font-size: 29px !important; text-align: center !important; }</style></head>');
     }
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.evaluate(async () => { await document.fonts.ready; });
 
     const screenshot = await page.screenshot({ type: 'png', fullPage: false });
