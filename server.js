@@ -160,7 +160,7 @@ app.get('/generate/:jobId', async (req, res) => {
             job.templateKey
           );
           emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'done' });
-          return { photoData, name: emp.fullName, buffer: pngBuffer };
+          return { photoData, name: emp.fullName, buffer: pngBuffer, dateHired: emp.dateHired };
         } catch (err) {
           emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
           return null;
@@ -171,7 +171,7 @@ app.get('/generate/:jobId', async (req, res) => {
       for (const result of results) {
         if (result) {
           job.photos.push(result.photoData);
-          job.posters.push({ name: result.name, buffer: result.buffer });
+          job.posters.push({ name: result.name, buffer: result.buffer, dateHired: result.dateHired });
         }
       }
     }
@@ -226,7 +226,7 @@ app.post('/regenerate/:jobId/:index', upload.single('photo'), async (req, res) =
       job.templateKey
     );
     job.photos[index] = photoData;
-    job.posters[index] = { name: fullName, buffer: pngBuffer };
+    job.posters[index] = { name: fullName, buffer: pngBuffer, dateHired: dateHired };
     // Re-key photo in photoMap under the new name so the name-based fallback
     // continues to work even if job.photos is somehow stale.
     const photoBuffer = Buffer.from(photoData.base64, 'base64');
@@ -260,10 +260,20 @@ app.get('/download/:jobId', async (req, res) => {
     if (parts.length < 2) return name;
     return `${parts[parts.length - 1]}, ${parts.slice(0, -1).join(' ')}`;
   }
-  const named = job.posters.map(p => ({
-    buffer: p.buffer,
-    name: suffix ? `${lastFirst(p.name)}-${suffix}` : lastFirst(p.name),
-  }));
+  const MONTH_NUM = {january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12'};
+  function dateHiredPrefix(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split(/\s+/);
+    if (parts.length < 2) return null;
+    const mm = MONTH_NUM[parts[0].toLowerCase()];
+    const dd = String(parts[1]).padStart(2, '0');
+    return (mm && dd) ? `${mm}-${dd}` : null;
+  }
+  const named = job.posters.map(p => {
+    const base = suffix ? `${lastFirst(p.name)}-${suffix}` : lastFirst(p.name);
+    const prefix = job.templateKey === 'anniversary' ? dateHiredPrefix(p.dateHired) : null;
+    return { buffer: p.buffer, name: prefix ? `${prefix}-${base}` : base };
+  });
   try {
     const zipBuffer = await buildZip(named);
     const zipName = suffix ? `${suffix}.zip` : 'new-employee-posters.zip';

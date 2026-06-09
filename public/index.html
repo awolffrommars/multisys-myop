@@ -1945,7 +1945,7 @@
         <div class="gallery-footer">
           <div class="gallery-label">${esc(name)}</div>
           <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
-          <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${index}" download="${esc(lastFirst(name))}-${currentSuffix}.png">↓ Save</a>
+          <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${index}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>
         </div>`;
       item.querySelector('img').addEventListener('click', () => openLightbox(index));
       item.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(index, emp); });
@@ -2203,7 +2203,7 @@
         const lbl = items[editIndex].querySelector('.gallery-label');
         if (lbl) lbl.textContent = newName;
         const dl = items[editIndex].querySelector('.gallery-dl');
-        if (dl) { dl.download = `${lastFirst(newName)}-${currentSuffix}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
+        if (dl) { dl.download = `${buildFilename(newName, currentSuffix, photoEmps[editIndex] && photoEmps[editIndex].dateHired)}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
       }
       if (document.getElementById('lightbox').classList.contains('open') && lightboxIndex === editIndex) {
         document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
@@ -2250,6 +2250,22 @@
     const last = parts[parts.length - 1];
     const first = parts.slice(0, -1).join(' ');
     return `${last}, ${first}`;
+  }
+
+  const MONTH_NUM = {january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12'};
+  function dateHiredPrefix(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split(/\s+/);
+    if (parts.length < 2) return null;
+    const mm = MONTH_NUM[parts[0].toLowerCase()];
+    const dd = String(parts[1]).padStart(2, '0');
+    return (mm && dd) ? `${mm}-${dd}` : null;
+  }
+  function buildFilename(name, suffix, dateHired) {
+    const base = `${lastFirst(name)}-${suffix}`;
+    if (selectedTemplate !== 'anniversary') return base;
+    const prefix = dateHiredPrefix(dateHired);
+    return prefix ? `${prefix}-${base}` : base;
   }
 
   function esc(str) {
