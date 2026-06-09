@@ -24,17 +24,22 @@ Generate Multisys announcement posters — New Employee, Birthday, and Work Anni
 
 ## Quick Start
 
+**Prerequisites:** [Node.js LTS](https://nodejs.org) must be installed.
+
 ```bash
+git clone https://github.com/awolffrommars/multisys-myop.git
+cd multisys-myop
 npm install
 npm start
-# Open http://localhost:3000
 ```
 
-Puppeteer downloads its own Chromium on `npm install`. If already cached at `~/.cache/puppeteer`:
+Then open `http://localhost:3000` in your browser.
 
-```bash
-PUPPETEER_SKIP_DOWNLOAD=true npm install
-```
+> `npm install` downloads Puppeteer's bundled Chromium (~200MB) on first run — this is normal and only happens once.
+
+## Live Site
+
+The app is also deployed at: https://awolffrommars-multisys-myop.hf.space
 
 ## Usage
 
