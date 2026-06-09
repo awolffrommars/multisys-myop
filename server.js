@@ -134,34 +134,45 @@ app.get('/generate/:jobId', async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
+  const CONCURRENCY = 3; // render 3 posters at a time
+
   try {
-    for (let i = 0; i < job.employees.length; i++) {
-      const emp = job.employees[i];
-      emit({ type: 'progress', row: i + 1, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'processing' });
+    for (let i = 0; i < job.employees.length; i += CONCURRENCY) {
+      const batch = job.employees.slice(i, i + CONCURRENCY);
 
-      try {
+      const results = await Promise.all(batch.map(async (emp, bi) => {
+        const row = i + bi + 1;
+        emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'processing' });
+
         const photoResult = findPhoto(emp.fullName, job.photoMap);
-
         if (!photoResult) {
-          emit({ type: 'progress', row: i + 1, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'skipped', message: 'No photo' });
-          continue;
+          emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'skipped', message: 'No photo' });
+          return null;
         }
 
         const photoData = { base64: photoResult.buffer.toString('base64'), format: photoResult.format };
+        try {
+          const pngBuffer = await renderPoster(
+            { fullName: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, anniversaryYears: emp.anniversaryYears, dateHired: emp.dateHired },
+            photoData,
+            templates[job.templateKey],
+            null,
+            job.templateKey
+          );
+          emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'done' });
+          return { photoData, name: emp.fullName, buffer: pngBuffer };
+        } catch (err) {
+          emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
+          return null;
+        }
+      }));
 
-        const pngBuffer = await renderPoster(
-          { fullName: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, anniversaryYears: emp.anniversaryYears, dateHired: emp.dateHired },
-          photoData,
-          templates[job.templateKey],
-          null,
-          job.templateKey
-        );
-
-        job.photos.push(photoData);
-        job.posters.push({ name: emp.fullName, buffer: pngBuffer });
-        emit({ type: 'progress', row: i + 1, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'done' });
-      } catch (err) {
-        emit({ type: 'progress', row: i + 1, name: emp.fullName, status: 'error', message: err.message });
+      // Push results in original order to keep job.posters / job.photos indices aligned
+      for (const result of results) {
+        if (result) {
+          job.photos.push(result.photoData);
+          job.posters.push({ name: result.name, buffer: result.buffer });
+        }
       }
     }
 
