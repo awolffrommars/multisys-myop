@@ -134,7 +134,7 @@ app.get('/generate/:jobId', async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
-  const CONCURRENCY = 3; // render 3 posters at a time
+  const CONCURRENCY = 2; // render 2 posters at a time
 
   try {
     for (let i = 0; i < job.employees.length; i += CONCURRENCY) {
