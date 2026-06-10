@@ -532,26 +532,27 @@
 
     .form-row.four-cols { grid-template-columns: 1fr 1fr 1fr 1fr; }
 
-    .form-row.ann-layout,
     .form-row.bday-layout { grid-template-columns: repeat(6, 1fr); }
+    .form-row.ann-layout  { grid-template-columns: repeat(12, 1fr); }
 
-    /* Row 1: date/years narrow (1), full name medium (2), position wide (3) */
-    .form-row.ann-layout #manualYearsField,
+    /* Birthday row 1: date(1), name(2), position(3) */
     .form-row.bday-layout #manualBirthdayField { grid-column: span 1; }
-
-    .form-row.ann-layout #manualNameField,
     .form-row.bday-layout #manualNameField     { grid-column: span 2; }
-
-    .form-row.ann-layout #manualPositionField,
     .form-row.bday-layout #manualPositionField { grid-column: span 3; }
 
-    /* Row 2 birthday: DeptField(labeled Division) auto-placed first, DivisionField(labeled Department) second */
+    /* Birthday row 2 */
     .form-row.bday-layout #manualDeptField     { grid-column: span 3; }
     .form-row.bday-layout #manualDivisionField { grid-column: span 3; }
 
-    /* Row 2 anniversary: explicit placement — Division left, Department right (always last) */
-    .form-row.ann-layout #manualDivisionField  { grid-column: 1 / span 3; grid-row: 2; }
-    .form-row.ann-layout #manualDeptField      { grid-column: 4 / span 3; grid-row: 2; }
+    /* Anniversary row 1: DateHired(25%) Years(25%) FullName(50%) */
+    .form-row.ann-layout #manualDateHiredField { grid-column: 1 / span 3;  grid-row: 1; }
+    .form-row.ann-layout #manualYearsField     { grid-column: 4 / span 3;  grid-row: 1; }
+    .form-row.ann-layout #manualNameField      { grid-column: 7 / span 6;  grid-row: 1; }
+
+    /* Anniversary row 2: Position(33%) Division(33%) Department(33%) */
+    .form-row.ann-layout #manualPositionField  { grid-column: 1 / span 4;  grid-row: 2; }
+    .form-row.ann-layout #manualDivisionField  { grid-column: 5 / span 4;  grid-row: 2; }
+    .form-row.ann-layout #manualDeptField      { grid-column: 9 / span 4;  grid-row: 2; }
 
     .form-field { display: flex; flex-direction: column; gap: 6px; }
 
@@ -688,7 +689,7 @@
     }
 
     .photo-match-hint { font-size: 12px; margin-top: 6px; }
-    .photo-match-hint.match { color: #22c55e; }
+    .photo-match-hint.match { color: #22c55e !important; }
     .photo-match-hint.mismatch { color: #f59e0b; }
     .photo-match-hint.neutral { color: #555; }
 
@@ -814,6 +815,12 @@
                 <div class="photo-match-hint" id="birthdaySpellingHint" style="display:none;flex-shrink:0;white-space:nowrap;margin-top:0"></div>
               </div>
             </div>
+            <!-- Date Hired: shown only for anniversary (ann-layout) -->
+            <div class="form-field" id="manualDateHiredField" style="display:none">
+              <label class="form-label" for="manualDateHired">Date Hired <span style="color:#cc3333">*</span></label>
+              <input class="form-input" type="text" id="manualDateHired" placeholder="May 01" autocomplete="off" />
+              <div class="photo-match-hint" id="dateHiredSpellingHint" style="display:none;margin-top:2px"></div>
+            </div>
             <!-- Years at the Company: shown only for anniversary (ann-layout) -->
             <div class="form-field" id="manualYearsField" style="display:none">
               <label class="form-label" for="manualYears">Years <span style="color:#cc3333">*</span></label>
@@ -927,9 +934,16 @@
 <div class="edit-modal-overlay" id="editModalOverlay">
   <div class="edit-modal-box">
     <div class="edit-modal-title">Edit Poster</div>
-    <div class="form-field" id="editYearsField" style="display:none;margin-bottom:12px">
-      <label class="form-label">Years at the Company</label>
-      <input class="form-input" type="text" id="editYears" placeholder="3" autocomplete="off" inputmode="numeric" style="width:120px" />
+    <div id="editAnniversaryRow" style="display:none;margin-bottom:12px;gap:12px">
+      <div class="form-field" id="editDateHiredField" style="flex:1">
+        <label class="form-label">Date Hired</label>
+        <input class="form-input" type="text" id="editDateHired" placeholder="May 01" autocomplete="off" style="width:180px" />
+        <div class="photo-match-hint" id="editDateHiredSpellingHint" style="display:none;margin-top:2px"></div>
+      </div>
+      <div class="form-field" id="editYearsField" style="flex:0 0 auto">
+        <label class="form-label">Years at the Company</label>
+        <input class="form-input" type="text" id="editYears" placeholder="3" autocomplete="off" inputmode="numeric" style="width:120px" />
+      </div>
     </div>
     <div class="form-field" style="margin-bottom:12px">
       <label class="form-label">Full Name</label>
@@ -1037,6 +1051,9 @@
     document.getElementById('manualDivision').value = '';
     document.getElementById('manualBirthday').value = '';
     document.getElementById('manualYears').value = '';
+    document.getElementById('manualDateHired').value = '';
+    document.getElementById('birthdaySpellingHint').style.display = 'none';
+    document.getElementById('dateHiredSpellingHint').style.display = 'none';
     document.getElementById('csvZone').classList.remove('has-file');
     document.getElementById('photoZone').classList.remove('has-file');
     document.getElementById('manualPhotoZone').classList.remove('has-file');
@@ -1056,20 +1073,24 @@
     const divField = document.getElementById('manualDivisionField');
     const bdField = document.getElementById('manualBirthdayField');
     const annField = document.getElementById('manualYearsField');
+    const dhField = document.getElementById('manualDateHiredField');
     const formRow = document.getElementById('manualFormRow');
     formRow.classList.remove('four-cols', 'ann-layout', 'bday-layout');
     if (isAnniversary) {
       formRow.classList.add('ann-layout');
       annField.style.display = '';
+      dhField.style.display = '';
       bdField.style.display = 'none';
       divField.style.display = '';
     } else if (isBirthday) {
       formRow.classList.add('bday-layout');
       bdField.style.display = '';
       annField.style.display = 'none';
+      dhField.style.display = 'none';
       divField.style.display = '';
     } else {
       annField.style.display = 'none';
+      dhField.style.display = 'none';
       bdField.style.display = 'none';
       divField.style.display = 'none';
     }
@@ -1109,8 +1130,8 @@
     // Edit modal fields
     const editDivField = document.getElementById('editDivisionField');
     if (editDivField) editDivField.style.display = needsDivision ? '' : 'none';
-    const editAnnField = document.getElementById('editYearsField');
-    if (editAnnField) editAnnField.style.display = isAnniversary ? '' : 'none';
+    const editAnnRow = document.getElementById('editAnniversaryRow');
+    if (editAnnRow) editAnnRow.style.display = isAnniversary ? 'flex' : 'none';
   }
 
   const csvInput = document.getElementById('csvInput');
@@ -1442,8 +1463,14 @@
 
   document.getElementById('manualBirthday').addEventListener('blur', () =>
     checkBirthdaySpelling(document.getElementById('manualBirthday'), document.getElementById('birthdaySpellingHint')));
+  document.getElementById('manualDateHired').addEventListener('blur', () =>
+    checkBirthdaySpelling(document.getElementById('manualDateHired'), document.getElementById('dateHiredSpellingHint')));
   document.getElementById('editBirthday').addEventListener('blur', () => {
     checkBirthdaySpelling(document.getElementById('editBirthday'), document.getElementById('editBirthdaySpellingHint'));
+    checkEditChanged();
+  });
+  document.getElementById('editDateHired').addEventListener('blur', () => {
+    checkBirthdaySpelling(document.getElementById('editDateHired'), document.getElementById('editDateHiredSpellingHint'));
     checkEditChanged();
   });
 
@@ -1469,7 +1496,7 @@
 
   // Add employee button + Enter key on fields
   document.getElementById('addEmployeeBtn').addEventListener('click', addEmployee);
-  ['manualName', 'manualPosition', 'manualDept', 'manualDivision', 'manualBirthday', 'manualYears'].forEach(id => {
+  ['manualName', 'manualPosition', 'manualDept', 'manualDivision', 'manualBirthday', 'manualYears', 'manualDateHired'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') addEmployee(); });
   });
 
@@ -1480,12 +1507,29 @@
     const division = document.getElementById('manualDivision').value.trim();
     const birthday = document.getElementById('manualBirthday').value.trim();
     const years = document.getElementById('manualYears').value.trim();
+    const dateHired = document.getElementById('manualDateHired').value.trim();
     if (!name || !position) {
       setError('Please fill in Full Name and Position.');
       return;
     }
     if (selectedTemplate === 'anniversary' && !years) {
       setError('Please fill in Years at the Company.');
+      return;
+    }
+    if (selectedTemplate === 'anniversary' && !dateHired) {
+      setError('Please fill in Date Hired.');
+      return;
+    }
+    if (selectedTemplate === 'anniversary' && !/\d/.test(dateHired.replace(/^[a-zA-Z]+/, ''))) {
+      setError('Date Hired must include a day (e.g. May 01).');
+      return;
+    }
+    if (selectedTemplate === 'birthday' && !birthday) {
+      setError('Please fill in Birthday.');
+      return;
+    }
+    if (selectedTemplate === 'birthday' && !/\d/.test(birthday.replace(/^[a-zA-Z]+/, ''))) {
+      setError('Birthday must include a day (e.g. May 01).');
       return;
     }
     const issues = [];
@@ -1511,11 +1555,11 @@
       return;
     }
     setError('');
-    commitEmployee(name, position, dept, division, birthday, years);
+    commitEmployee(name, position, dept, division, birthday, years, dateHired);
   }
 
-  function commitEmployee(name, position, dept, division, birthday, years) {
-    manualEmployees.push({ fullName: name, position, department: dept, division: division || '', birthdayDate: birthday || '', anniversaryYears: years || '', dateHired: '', photoFile: currentManualPhoto });
+  function commitEmployee(name, position, dept, division, birthday, years, dateHired) {
+    manualEmployees.push({ fullName: name, position, department: dept, division: division || '', birthdayDate: birthday || '', anniversaryYears: years || '', dateHired: dateHired || '', photoFile: currentManualPhoto });
     renderManualList();
     document.getElementById('manualName').value = '';
     document.getElementById('manualPosition').value = '';
@@ -1523,7 +1567,9 @@
     document.getElementById('manualDivision').value = '';
     document.getElementById('manualBirthday').value = '';
     document.getElementById('manualYears').value = '';
+    document.getElementById('manualDateHired').value = '';
     document.getElementById('birthdaySpellingHint').style.display = 'none';
+    document.getElementById('dateHiredSpellingHint').style.display = 'none';
     currentManualPhoto = null;
     manualPhotoInput.value = '';
     document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
@@ -1547,8 +1593,9 @@
     const division = document.getElementById('manualDivision').value.trim();
     const birthday = document.getElementById('manualBirthday').value.trim();
     const years = document.getElementById('manualYears').value.trim();
+    const dateHired = document.getElementById('manualDateHired').value.trim();
     setError('');
-    commitEmployee(name, position, dept, division, birthday, years);
+    commitEmployee(name, position, dept, division, birthday, years, dateHired);
   });
 
   document.getElementById('deptConfirmNo').addEventListener('click', () => {
@@ -1582,7 +1629,7 @@
             division: document.getElementById('manualDivision').value.trim(),
             birthdayDate: document.getElementById('manualBirthday').value.trim(),
             anniversaryYears: document.getElementById('manualYears').value.trim(),
-            dateHired: '',
+            dateHired: document.getElementById('manualDateHired').value.trim(),
             photoFile: currentManualPhoto
           });
           hideDeptConfirm();
@@ -1595,6 +1642,7 @@
         document.getElementById('manualDivision').value = e.division || '';
         document.getElementById('manualBirthday').value = e.birthdayDate || '';
         document.getElementById('manualYears').value = e.anniversaryYears || '';
+        document.getElementById('manualDateHired').value = e.dateHired || '';
         currentManualPhoto = e.photoFile;
         const label = document.getElementById('manualPhotoLabel');
         const zone = document.getElementById('manualPhotoZone');
@@ -2053,33 +2101,36 @@
 
   function captureEditSnapshot() {
     editSnapshot = {
-      name:     document.getElementById('editName').value,
-      position: document.getElementById('editPosition').value,
-      division: document.getElementById('editDivision').value,
-      dept:     document.getElementById('editDept').value,
-      birthday: document.getElementById('editBirthday').value,
-      years:    document.getElementById('editYears').value,
+      name:       document.getElementById('editName').value,
+      position:   document.getElementById('editPosition').value,
+      division:   document.getElementById('editDivision').value,
+      dept:       document.getElementById('editDept').value,
+      birthday:   document.getElementById('editBirthday').value,
+      years:      document.getElementById('editYears').value,
+      dateHired:  document.getElementById('editDateHired').value,
     };
   }
 
   function checkEditChanged() {
-    const name     = document.getElementById('editName').value.trim();
-    const position = document.getElementById('editPosition').value.trim();
-    const years    = document.getElementById('editYears').value.trim();
-    const birthday = document.getElementById('editBirthday').value.trim();
+    const name      = document.getElementById('editName').value.trim();
+    const position  = document.getElementById('editPosition').value.trim();
+    const years     = document.getElementById('editYears').value.trim();
+    const birthday  = document.getElementById('editBirthday').value.trim();
+    const dateHired = document.getElementById('editDateHired').value.trim();
 
     const requiredFilled =
       !!name && !!position &&
-      (selectedTemplate !== 'anniversary' || !!years) &&
+      (selectedTemplate !== 'anniversary' || (!!years && !!dateHired)) &&
       (selectedTemplate !== 'birthday'    || !!birthday);
 
     const changed =
-      document.getElementById('editName').value     !== editSnapshot.name     ||
-      document.getElementById('editPosition').value !== editSnapshot.position ||
-      document.getElementById('editDivision').value !== editSnapshot.division ||
-      document.getElementById('editDept').value     !== editSnapshot.dept     ||
-      document.getElementById('editBirthday').value !== editSnapshot.birthday ||
-      document.getElementById('editYears').value    !== editSnapshot.years    ||
+      document.getElementById('editName').value      !== editSnapshot.name      ||
+      document.getElementById('editPosition').value  !== editSnapshot.position  ||
+      document.getElementById('editDivision').value  !== editSnapshot.division  ||
+      document.getElementById('editDept').value      !== editSnapshot.dept      ||
+      document.getElementById('editBirthday').value  !== editSnapshot.birthday  ||
+      document.getElementById('editYears').value     !== editSnapshot.years     ||
+      document.getElementById('editDateHired').value !== editSnapshot.dateHired ||
       !!editPhotoFile;
 
     document.getElementById('editSaveBtn').disabled = !(requiredFilled && changed);
@@ -2099,14 +2150,16 @@
     document.getElementById('editDept').value     = isBirthdayEdit ? (emp.division  || '') : (emp.department || '');
     document.getElementById('editBirthday').value = emp.birthdayDate || '';
     document.getElementById('editYears').value = emp.anniversaryYears || '';
+    document.getElementById('editDateHired').value = emp.dateHired || '';
     document.getElementById('editDivisionField').style.display = needsDivEdit ? '' : 'none';
     document.getElementById('editBirthdayField').style.display = isBirthdayEdit ? '' : 'none';
-    document.getElementById('editYearsField').style.display = selectedTemplate === 'anniversary' ? '' : 'none';
+    document.getElementById('editAnniversaryRow').style.display = selectedTemplate === 'anniversary' ? 'flex' : 'none';
     document.getElementById('editPhotoLabel').textContent = 'Replace photo (optional)';
     document.getElementById('editPhotoInput').value = '';
     document.getElementById('editPhotoZone').classList.remove('has-file');
     document.getElementById('editPhotoMatchHint').style.display = 'none';
     document.getElementById('editBirthdaySpellingHint').style.display = 'none';
+    document.getElementById('editDateHiredSpellingHint').style.display = 'none';
     document.getElementById('editMismatchConfirm').style.display = 'none';
     document.getElementById('editModalOverlay').classList.add('open');
     captureEditSnapshot();
@@ -2143,7 +2196,7 @@
   });
 
   document.getElementById('editName').addEventListener('input', () => { checkEditPhotoMatch(); checkEditChanged(); });
-  ['editPosition', 'editDivision', 'editDept', 'editBirthday', 'editYears'].forEach(id =>
+  ['editPosition', 'editDivision', 'editDept', 'editBirthday', 'editYears', 'editDateHired'].forEach(id =>
     document.getElementById(id).addEventListener('input', checkEditChanged));
 
   document.getElementById('editCancelBtn').addEventListener('click', () => {
@@ -2157,12 +2210,13 @@
 
   async function doRegenerate() {
     const btn = document.getElementById('editSaveBtn');
-    const newName  = document.getElementById('editName').value.trim();
-    const newPos   = document.getElementById('editPosition').value.trim();
-    const newDept  = document.getElementById('editDept').value.trim();
-    const newDiv   = document.getElementById('editDivision').value.trim();
-    const newBd    = document.getElementById('editBirthday').value.trim();
-    const newYears = document.getElementById('editYears').value.trim();
+    const newName      = document.getElementById('editName').value.trim();
+    const newPos       = document.getElementById('editPosition').value.trim();
+    const newDept      = document.getElementById('editDept').value.trim();
+    const newDiv       = document.getElementById('editDivision').value.trim();
+    const newBd        = document.getElementById('editBirthday').value.trim();
+    const newYears     = document.getElementById('editYears').value.trim();
+    const newDateHired = document.getElementById('editDateHired').value.trim();
 
     btn.disabled = true;
     btn.textContent = 'Regenerating...';
@@ -2177,6 +2231,7 @@
     form.append('division',   isBirthdayReg ? newDept : newDiv);
     form.append('birthdayDate', newBd);
     form.append('anniversaryYears', newYears);
+    form.append('dateHired', newDateHired);
     form.append('originalName', editOriginalName);
     if (editPhotoFile) form.append('photo', editPhotoFile);
 
@@ -2191,8 +2246,9 @@
         photoEmps[editIndex].position        = newPos;
         photoEmps[editIndex].department      = isBirthdayReg ? newDiv  : newDept;
         photoEmps[editIndex].division        = isBirthdayReg ? newDept : newDiv;
-        photoEmps[editIndex].birthdayDate    = newBd;
+        photoEmps[editIndex].birthdayDate     = newBd;
         photoEmps[editIndex].anniversaryYears = newYears;
+        photoEmps[editIndex].dateHired        = newDateHired;
       }
 
       const ts = Date.now();

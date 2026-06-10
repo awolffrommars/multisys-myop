@@ -20,7 +20,7 @@ Generate Multisys announcement posters — New Employee, Birthday, and Work Anni
 - Client-side CSV format detection and validation
 - Server-Sent Events for real-time generation progress
 - Edit any poster after generation and re-render individually
-- ZIP download with standardized filenames (`LastName, FirstName-Template-MMDDYY.png`)
+- ZIP download with standardized filenames
 
 ## Quick Start
 
