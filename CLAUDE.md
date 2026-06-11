@@ -209,6 +209,69 @@ Canvas: `#090909`, Surface-1: `#141414`, Surface-2: `#1c1c1c`. Accent blue (`#00
 
 Page layout: `.main` max-width is `900px`. `.page` uses `justify-content: flex-start` (not `center`) to prevent content from shifting upward when expandable sections grow.
 
+## Auth & Admin System
+
+**Auth is optional** — skipped entirely when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` env vars are absent (local dev without `.env` works fine).
+
+**Login flow:**
+- Google OAuth restricted to `@multisyscorp.com` accounts (enforced in GoogleStrategy callback)
+- **Whitelist** (full immediate access): `kfgoting`, `jhbanag`, `espingol`, `mtcabugnason` — all `@multisyscorp.com`
+- Non-whitelisted `@multisyscorp.com` users → inserted as `pending` in DB → shown `/waiting` page (polls `/auth/status` every 5s → auto-redirects when approved)
+- Admin is emailed on new request; user is emailed when approved (requires `GMAIL_APP_PASSWORD` env var)
+- Denied users → `/denied` page
+
+**Middleware:**
+- `requireAccess` — blocks unless whitelisted OR DB status=`approved`; updates `last_seen` on each pass
+- `requireAdmin` — blocks unless `req.user.email === ADMIN_EMAIL` (`kfgoting@multisyscorp.com`)
+
+**Admin routes (all behind `requireAdmin`):**
+```
+GET  /admin               — serves public/admin.html
+GET  /admin/data          — JSON: { pending, approved, denied, history, stats }
+POST /admin/approve/:email
+POST /admin/deny/:email
+POST /admin/revoke/:email
+```
+
+**Auth routes:**
+```
+GET /login               — Google sign-in page
+GET /auth/google         — OAuth redirect
+GET /auth/google/callback
+GET /waiting             — polling page for pending users
+GET /denied
+GET /auth/status         — returns { status: 'pending'|'approved'|'denied'|'unauthenticated' }
+GET /logout
+GET /me                  — returns { email, name } or {}
+```
+
+**Database:** `services/db.js` — SQLite via `better-sqlite3`. File at `data/myop.db` (gitignored). Two tables:
+- `users` — `email PK`, `name`, `status` (pending/approved/denied), `requested_at`, `approved_at`, `last_seen`
+- `history` — `id`, `user_email`, `template`, `employee_count`, `employee_names` (JSON), `generated_at`
+
+History is logged in `/generate` after `job.status = 'done'` — only when `AUTH_ENABLED && req.user && db`.
+
+**Admin dashboard** (`public/admin.html`):
+- KPI cards: Total Users, Pending, Approved, Posters Generated
+- Pending Requests table (approve/deny), with amber alert banner when non-empty
+- Charts: Posters by Template (doughnut, template colors) + Daily Activity last 30 days (bar)
+- Approved Users table (last seen, posters made, revoke)
+- Denied Users table (with re-approve)
+- Generation History table with user/template filters
+- Auto-refreshes every 30 seconds via `setInterval(loadData, 30000)`
+
+**Required env vars for full auth:**
+```
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+SESSION_SECRET=...
+GMAIL_APP_PASSWORD=        # Gmail app password for notification emails
+APP_URL=http://localhost:3000  # Set to HF Space URL for production
+```
+
+**CONCURRENCY** was reduced from 3 → 2 in `server.js` (3 sometimes hung during presentations).
+
 ## V1 Backups / Future Work
 
 V1 backups: `server.v1.js`, `public/index.v1.html`, `templates/poster.v1.html`. `npm run start:v1` launches V1.

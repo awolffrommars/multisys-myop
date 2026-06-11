@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin — Make Your Own Poster</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Global focus ring for keyboard nav */
+    :focus-visible {
+      outline: 2px solid #0099ff;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    :root {
+      --bg:         #090909;
+      --surface:    #141414;
+      --surface-2:  #1c1c1c;
+      --border:     #222;
+      --border-2:   #2c2c2c;
+      --text:       #fff;
+      --text-dim:   #999;
+      --text-muted: #555;
+      --accent:     #0099ff;
+      --green:      #22c55e;
+      --amber:      #f59e0b;
+      --red:        #ef4444;
+      --tpl-new:    #eb6004;
+      --tpl-bday:   #ffb133;
+      --tpl-ann:    #e04040;
+      --sidebar-w:  220px;
+    }
+
+    body {
+      font-family: Inter, -apple-system, sans-serif;
+      font-feature-settings: 'cv01','cv05','cv09','cv11','ss03','ss07';
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 50;
+    }
+
+    .sidebar-brand {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-brand img { height: 22px; }
+    .sidebar-brand-text { font-size: 13px; font-weight: 700; }
+
+    .sidebar-section-label {
+      padding: 16px 18px 6px;
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 4px 8px 10px;
+      display: flex; flex-direction: column; gap: 2px;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+      user-select: none; position: relative;
+    }
+    .nav-item:hover { background: var(--surface-2); color: var(--text-dim); }
+    .nav-item.active { background: var(--surface-2); color: var(--text); }
+    .nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .nav-icon svg { width: 15px; height: 15px; }
+    .nav-label { flex: 1; }
+    .nav-badge {
+      background: var(--red); color: #fff;
+      font-size: 10px; font-weight: 700;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 100px; display: none;
+      align-items: center; justify-content: center;
+    }
+    .nav-badge.show { display: flex; }
+
+    .sidebar-footer {
+      padding: 14px 8px;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .sidebar-footer a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px;
+      font-size: 12px; color: var(--text-muted); text-decoration: none;
+      transition: color 0.15s, background 0.15s;
+    }
+    .sidebar-footer a:hover { color: var(--text-dim); background: var(--surface-2); }
+
+    /* ── Main content ────────────────────────────────────── */
+    .content {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-height: 100vh;
+      min-width: 0;
+    }
+
+    .content-header {
+      height: 54px; padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface); position: sticky; top: 0; z-index: 40;
+    }
+    .content-title { font-size: 15px; font-weight: 700; }
+    .refresh-label { font-size: 11px; color: var(--text-muted); }
+
+    .page { display: none; padding: 28px; }
+    .page.active { display: block; }
+
+    /* ── Section ─────────────────────────────────────────── */
+    .section { margin-bottom: 28px; }
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── KPI Grid ───────────────────────────────────────── */
+    .kpi-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 22px 24px;
+    }
+    .kpi-label { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
+    .kpi-value {
+      font-size: 36px; font-weight: 800; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-value.blue  { color: var(--accent); }
+    .kpi-value.green { color: var(--green); }
+    .kpi-value.amber { color: var(--amber); }
+    .kpi-value.dim   { color: var(--text-dim); }
+
+    /* ── Chart row ──────────────────────────────────────── */
+    .chart-row { display: grid; grid-template-columns: 280px 1fr; gap: 12px; }
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 22px;
+    }
+    .chart-card-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 18px;
+    }
+
+    /* ── Alert ──────────────────────────────────────────── */
+    .alert-amber {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 13px; color: var(--amber); margin-bottom: 12px;
+    }
+    .alert-amber.hidden { display: none; }
+
+    /* ── Card / Table ───────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: var(--surface-2); padding: 10px 16px;
+      text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    thead th.right { text-align: right; }
+    tbody td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody td.right { text-align: right; font-weight: 600; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.04); transition: background 150ms ease; }
+    tfoot td {
+      padding: 11px 16px; border-top: 1px solid var(--border-2);
+      font-size: 12px; font-weight: 700; color: var(--text-dim);
+      background: var(--surface-2);
+    }
+    tfoot td.right { text-align: right; color: var(--text); }
+    .empty-row td { padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .btn-approve, .btn-deny, .btn-revoke {
+      padding: 5px 13px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      border: none; cursor: pointer; font-family: inherit; transition: opacity 0.15s;
+    }
+    .btn-approve { background: var(--green); color: #000; }
+    .btn-deny    { background: transparent; color: var(--red); border: 1px solid rgba(239,68,68,0.35); margin-left: 6px; }
+    .btn-revoke  { background: transparent; color: var(--text-muted); border: 1px solid var(--border-2); }
+    .btn-approve:hover, .btn-deny:hover, .btn-revoke:hover { opacity: 0.75; }
+
+    /* ── Template tags ──────────────────────────────────── */
+    .tpl {
+      display: inline-block; padding: 3px 9px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .tpl.new-employee { background: rgba(235,96,4,0.12);    color: var(--tpl-new); }
+    .tpl.birthday     { background: rgba(255,177,51,0.12);  color: var(--tpl-bday); }
+    .tpl.anniversary  { background: rgba(224,64,64,0.12);   color: var(--tpl-ann); }
+
+    /* ── Names cell ─────────────────────────────────────── */
+    .names { font-size: 12px; color: var(--text-dim); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Toast ──────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px; font-size: 13px; color: var(--text);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      transform: translateY(60px); opacity: 0;
+      transition: transform 0.2s, opacity 0.2s; z-index: 200;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.ok  { border-color: rgba(34,197,94,0.4); color: var(--green); }
+    #toast.err { border-color: rgba(239,68,68,0.4); color: var(--red); }
+
+    /* ── Tab bar ────────────────────────────────────────── */
+    .tab-bar { display: flex; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 4px; width: fit-content; }
+    .tab-btn {
+      padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      border: none; cursor: pointer; font-family: inherit;
+      color: var(--text-muted); background: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-dim); background: rgba(255,255,255,0.04); }
+    .tab-btn.active { background: var(--surface); color: var(--text); }
+
+    /* ── Error type badges ───────────────────────────────── */
+    .err-type {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .err-type.timeout        { background: rgba(245,158,11,0.12); color: var(--amber); }
+    .err-type.network        { background: rgba(0,153,255,0.12);  color: var(--accent); }
+    .err-type.browser        { background: rgba(239,68,68,0.12);  color: var(--red); }
+    .err-type.render         { background: rgba(239,68,68,0.12);  color: var(--red); }
+    .err-type.server         { background: rgba(239,68,68,0.15);  color: var(--red); }
+    .err-type.missing        { background: rgba(153,153,153,0.12);color: var(--text-dim); }
+    .err-msg { font-size: 11px; color: var(--text-muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    @media (max-width: 900px) {
+      .chart-row { grid-template-columns: 1fr; }
+      .kpi-grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/logo-multisys.svg" alt="Multisys"/>
+    <span class="sidebar-brand-text">MYOP</span>
+  </div>
+
+  <div class="sidebar-section-label">Admin</div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <span class="nav-icon">
+        <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="5.5" height="5.5" rx="1.2" fill="currentColor"/>
+          <rect x="8.5" y="1" width="5.5" height="5.5" rx="1.2" fill="currentColor"/>
+          <rect x="1" y="8.5" width="5.5" height="5.5" rx="1.2" fill="currentColor"/>
+          <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.2" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" data-page="users" onclick="navigate('users')">
+      <span class="nav-icon">
+        <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="5" cy="4.5" r="2.3" fill="currentColor"/>
+          <path d="M0.5 12.5c0-2.8 2-4.5 4.5-4.5s4.5 1.7 4.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+          <circle cx="11.5" cy="4" r="1.8" fill="currentColor" opacity="0.6"/>
+          <path d="M9.5 12.5c0-2.3 1.3-3.8 3-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none" opacity="0.6"/>
+        </svg>
+      </span>
+      <span class="nav-label">Users</span>
+    </div>
+    <div class="nav-item" data-page="requests" onclick="navigate('requests')">
+      <span class="nav-icon">
+        <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/>
+          <path d="M4 5h7M4 7.5h7M4 10h4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="nav-label">Requests</span>
+      <span class="nav-badge" id="nav-badge-requests"></span>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:8px 4px 6px"></div>
+
+    <a href="/" style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text-muted);text-decoration:none;transition:background 0.15s,color 0.15s;" onmouseover="this.style.background='var(--surface-2)';this.style.color='var(--text-dim)'" onmouseout="this.style.background='';this.style.color='var(--text-muted)'">
+      <span class="nav-icon">
+        <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.5 3L2 7.5L6.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 7.5H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span>Back to App</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="/logout">Sign out</a>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="content">
+  <header class="content-header">
+    <span class="content-title" id="page-title">Dashboard</span>
+    <span class="refresh-label" id="refresh-label"></span>
+  </header>
+
+  <!-- ── Dashboard ─────────────────────────────────────── -->
+  <div class="page active" id="page-dashboard">
+
+    <div class="section">
+      <div class="kpi-grid-2">
+        <div class="kpi-card">
+          <div class="kpi-label">Posters Generated</div>
+          <div class="kpi-value blue" id="kpi-posters">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Batches Run</div>
+          <div class="kpi-value dim" id="kpi-batches">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-card-title">Posters by Template</div>
+          <div style="position:relative;height:210px" id="wrap-doughnut">
+            <canvas id="chart-doughnut"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Daily Output — Last 30 Days</div>
+          <div style="position:relative;height:210px">
+            <canvas id="chart-activity"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Recent Activity</div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>User</th><th>Template</th><th>Count</th><th>Duration</th><th>Employees</th><th>Date</th>
+          </tr></thead>
+          <tbody id="recent-tbody">
+            <tr class="empty-row"><td colspan="6">No activity yet<br><span style="font-size:11px;color:var(--text-muted)">Generate your first poster to see history here</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Render Errors</span>
+        <span id="error-count-badge" style="display:none;font-size:11px;font-weight:600;padding:2px 9px;border-radius:100px;background:rgba(239,68,68,0.15);color:var(--red)"></span>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>When</th><th>User</th><th>Template</th><th>Employee</th><th>Type</th><th>Details</th>
+          </tr></thead>
+          <tbody id="errors-tbody">
+            <tr class="empty-row"><td colspan="6">No errors recorded<br><span style="font-size:11px;color:var(--text-muted)">Render failures will appear here with error details</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Requests ──────────────────────────────────────── -->
+  <div class="page" id="page-requests">
+
+    <div class="section">
+      <div class="kpi-grid-2" style="max-width:540px">
+        <div class="kpi-card">
+          <div class="kpi-label">Pending Requests</div>
+          <div class="kpi-value amber" id="req-kpi-pending">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Approved Users</div>
+          <div class="kpi-value green" id="req-kpi-approved">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        Pending Requests
+        <span class="nav-badge show" id="pending-count-inline" style="display:none;background:var(--amber);color:#000"></span>
+      </div>
+      <div class="alert-amber hidden" id="pending-alert">
+        ⚠&nbsp; Users are waiting for your approval.
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>Email</th><th>Name</th><th>Requested</th><th style="width:180px">Actions</th>
+          </tr></thead>
+          <tbody id="pending-tbody">
+            <tr class="empty-row"><td colspan="4">No pending requests</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Approved Users</div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>Email</th><th>Name</th><th>Approved</th><th style="width:130px">Actions</th>
+          </tr></thead>
+          <tbody id="approved-tbody">
+            <tr class="empty-row"><td colspan="4">No approved users</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Denied Users</div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>Email</th><th>Name</th><th>Requested</th><th style="width:130px">Actions</th>
+          </tr></thead>
+          <tbody id="denied-tbody">
+            <tr class="empty-row"><td colspan="4">No denied users</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Users ─────────────────────────────────────────── -->
+  <div class="page" id="page-users">
+
+    <!-- User selector -->
+    <div class="section" style="margin-bottom:20px;display:flex;align-items:center;gap:12px">
+      <label style="font-size:12px;color:var(--text-dim);white-space:nowrap">Viewing:</label>
+      <select id="user-filter-select" onchange="switchUserFilter(this.value)"
+        style="background:var(--surface);color:var(--text);border:1px solid var(--border-2);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;min-width:220px">
+        <option value="all">All Users</option>
+      </select>
+    </div>
+
+    <!-- Per-template tab bar -->
+    <div class="section" id="user-tpl-tabs" style="display:none;margin-bottom:20px">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tpl="all"           onclick="switchUserTab('all')">All Templates</button>
+        <button class="tab-btn"        data-tpl="new-employee"  onclick="switchUserTab('new-employee')">New Employee</button>
+        <button class="tab-btn"        data-tpl="birthday"      onclick="switchUserTab('birthday')">Birthday</button>
+        <button class="tab-btn"        data-tpl="anniversary"   onclick="switchUserTab('anniversary')">Work Anniversary</button>
+      </div>
+    </div>
+
+    <!-- Monthly chart -->
+    <div class="section" id="monthly-chart-section" style="display:none">
+      <div class="chart-card">
+        <div class="chart-card-title" id="monthly-chart-title">Monthly Output</div>
+        <div style="position:relative;height:180px">
+          <canvas id="chart-monthly"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users table -->
+    <div class="section">
+      <div class="section-title" id="users-table-title">User Breakdown</div>
+      <div class="card">
+        <table id="users-table">
+          <thead id="users-thead"><tr></tr></thead>
+          <tbody id="users-tbody">
+            <tr class="empty-row"><td colspan="6">No data yet</td></tr>
+          </tbody>
+          <tfoot id="users-tfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="toast"></div>
+<div id="row-tooltip" style="display:none;position:fixed;z-index:500;background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:12px 16px;font-size:12px;pointer-events:none;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+
+<!-- Custom confirm modal -->
+<div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:none;align-items:center;justify-content:center;animation:fadeInBackdrop 150ms ease">
+  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:28px 28px 20px;width:360px;max-width:90vw;animation:slideUpModal 180ms ease">
+    <div id="confirm-title" style="font-size:15px;font-weight:600;margin-bottom:8px"></div>
+    <div id="confirm-body" style="font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:24px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button id="confirm-cancel" style="background:transparent;color:var(--text-dim);border:1px solid var(--border-2);border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer" onclick="resolveConfirm(false)">Cancel</button>
+      <button id="confirm-ok" style="border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;border:none" onclick="resolveConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+let DATA = { pending: [], approved: [], denied: [], history: [], errors: [], stats: { byTemplate: [], byUser: [], activity: [], totalPosters: 0 } };
+let charts = {};
+const USER_PALETTE = ['#4f9cf9','#a78bfa','#34d399','#fb923c','#f472b6','#22d3ee','#fbbf24','#84cc16','#f87171','#818cf8'];
+
+function getFirstName(email) {
+  const all = [...(DATA.approved||[]), ...(DATA.denied||[])];
+  const u = all.find(u => u.email === email);
+  if (u?.name) return u.name.split(' ')[0];
+  return email.split('@')[0];
+}
+
+function makeExternalTooltip(getBreakdownFn) {
+  return function({ chart, tooltip }) {
+    let tip = document.getElementById('chart-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'chart-tooltip';
+      tip.style.cssText = 'position:fixed;z-index:500;background:#1c1c1c;border:1px solid #333;border-radius:10px;padding:12px 16px;font-size:12px;pointer-events:none;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.6);transition:opacity 120ms';
+      document.body.appendChild(tip);
+    }
+    if (tooltip.opacity === 0) { tip.style.opacity = '0'; return; }
+    const dp = tooltip.dataPoints?.[0];
+    if (!dp) { tip.style.opacity = '0'; return; }
+    const breakdown = getBreakdownFn(dp);
+    if (!breakdown.length) { tip.style.opacity = '0'; return; }
+    const total = breakdown.reduce((s,b) => s+b.count, 0);
+    const tplLabel = dp.dataset.label ? ` · ${dp.dataset.label}` : '';
+    tip.innerHTML = `
+      <div style="font-size:11px;color:#666;margin-bottom:10px">${tooltip.title[0]}${tplLabel}</div>
+      ${breakdown.map(b => {
+        const pct = total > 0 ? Math.round(b.count/total*100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="width:72px;font-size:11px;color:${b.isRevoked ? '#e05555' : '#aaa'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</div>
+          <div style="flex:1;height:6px;background:#2a2a2a;border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${b.color};border-radius:3px"></div>
+          </div>
+          <div style="width:20px;text-align:right;font-size:12px;color:#ccc">${b.count}</div>
+        </div>`;
+      }).join('')}
+      <div style="border-top:1px solid #2a2a2a;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between">
+        <span style="color:#555">Total</span><span style="color:#fff;font-weight:600">${total}</span>
+      </div>`;
+    tip.style.opacity = '1';
+    const rect = chart.canvas.getBoundingClientRect();
+    const x = rect.left + tooltip.caretX + 18;
+    const y = rect.top  + tooltip.caretY - 10;
+    tip.style.left = (x + 200 > window.innerWidth ? x - 220 : x) + 'px';
+    tip.style.top  = y + 'px';
+  };
+}
+let currentPage = 'dashboard';
+let currentUserTab    = 'all';
+let currentUserFilter = 'all';
+let currentUserSort   = null; // null = insertion order
+let currentUserSortDir = 'desc';
+
+const PAGE_TITLES = { dashboard: 'Dashboard', requests: 'Requests', users: 'Users' };
+
+// ─── Utils ─────────────────────────────────────────────────────────────────
+function timeAgo(ms) {
+  if (!ms) return '—';
+  const d = Date.now() - ms;
+  if (d < 60000)      return 'just now';
+  if (d < 3600000)    return `${Math.floor(d/60000)}m ago`;
+  if (d < 86400000)   return `${Math.floor(d/3600000)}h ago`;
+  if (d < 2592000000) return `${Math.floor(d/86400000)}d ago`;
+  return fmtDate(ms);
+}
+function fmtDate(ms) {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+function fmtDateTime(ms) {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function tplLabel(key) {
+  return { 'new-employee':'New Employee', 'birthday':'Birthday', 'anniversary':'Work Anniversary' }[key] || key;
+}
+function fmtDuration(ms) {
+  if (!ms || ms <= 0) return '—';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s/60)}m ${s%60}s`;
+}
+function fmtDurationPerPoster(avgMs) {
+  if (!avgMs) return '—';
+  return `~${Math.round(avgMs/1000)}s/poster`;
+}
+function errTypeClass(type = '') {
+  const t = type.toLowerCase();
+  if (t.includes('timeout'))  return 'timeout';
+  if (t.includes('network'))  return 'network';
+  if (t.includes('browser'))  return 'browser';
+  if (t.includes('server'))   return 'server';
+  if (t.includes('missing'))  return 'missing';
+  return 'render';
+}
+function enc(e) { return encodeURIComponent(e); }
+
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ─── Navigation ─────────────────────────────────────────────────────────────
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  document.querySelectorAll('.page').forEach(el => {
+    el.classList.toggle('active', el.id === `page-${page}`);
+  });
+  document.getElementById('page-title').textContent = PAGE_TITLES[page];
+}
+
+// ─── Load ───────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch('/admin/data');
+    if (!r.ok) throw new Error(r.statusText);
+    DATA = await r.json();
+    render();
+    document.getElementById('refresh-label').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    toast('Failed to load: ' + e.message, 'err');
+  }
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  renderDashboard();
+  renderRequests();
+  populateUserDropdown();
+  renderUsers(currentUserTab, currentUserFilter);
+  updateBadges();
+}
+
+function updateBadges() {
+  const count = DATA.pending.length;
+  const badge = document.getElementById('nav-badge-requests');
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('kpi-posters').textContent = DATA.stats?.totalPosters ?? 0;
+  document.getElementById('kpi-batches').textContent = (DATA.history || []).length;
+
+  renderDoughnut();
+  renderActivityChart();
+  renderRecentActivity();
+  renderErrorsTable();
+}
+
+function renderDoughnut() {
+  const wrap  = document.getElementById('wrap-doughnut');
+  const byTpl = DATA.stats?.byTemplate || [];
+  const ORDER  = ['new-employee', 'birthday', 'anniversary'];
+  const COLORS = { 'new-employee':'#eb6004', 'birthday':'#ffb133', 'anniversary':'#e04040' };
+  const data   = ORDER.map(k => (byTpl.find(r => r.template === k)?.total) || 0);
+
+  if (data.every(v => v === 0)) {
+    wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:210px;color:var(--text-muted);font-size:13px">No poster data yet</div>';
+    return;
+  }
+  if (!wrap.querySelector('canvas')) wrap.innerHTML = '<canvas id="chart-doughnut"></canvas>';
+  const ctx = document.getElementById('chart-doughnut').getContext('2d');
+  if (charts.doughnut) charts.doughnut.destroy();
+  charts.doughnut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ORDER.map(tplLabel),
+      datasets: [{ data, backgroundColor: ORDER.map(k => COLORS[k]), borderColor: '#141414', borderWidth: 3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#777', font: { size: 11 }, padding: 14, usePointStyle: true } },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed} posters` } },
+      },
+    },
+  });
+}
+
+function renderActivityChart() {
+  const activity = DATA.stats?.activity || [];
+  const days = [];
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const byDay = {};
+  activity.forEach(r => { byDay[r.day] = r.posters; });
+  const data   = days.map(d => byDay[d] || 0);
+  const labels = days.map(d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' }));
+
+  const ctx = document.getElementById('chart-activity').getContext('2d');
+  if (charts.activity) charts.activity.destroy();
+  charts.activity = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label:'Posters', data, backgroundColor:'rgba(0,153,255,0.4)', borderColor:'#0099ff', borderWidth:1, borderRadius:3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color:'#252525' }, ticks: { color:'#555', font:{ size:10 }, maxTicksLimit:8 } },
+        y: { beginAtZero: true, grid: { color:'#252525' }, ticks: { color:'#555', font:{ size:10 }, stepSize:1 } },
+      },
+    },
+  });
+}
+
+function renderRecentActivity() {
+  const tbody = document.getElementById('recent-tbody');
+  const rows  = (DATA.history || []).slice(0, 10);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No activity yet<br><span style="font-size:11px;color:var(--text-muted)">Generate your first poster to see history here</span></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    let names = [];
+    try { names = JSON.parse(r.employee_names); } catch {}
+    return `<tr>
+      <td style="color:var(--text-dim);font-size:12px">${r.user_email}</td>
+      <td><span class="tpl ${r.template}">${tplLabel(r.template)}</span></td>
+      <td style="font-weight:600">${r.employee_count}</td>
+      <td style="color:var(--text-dim);font-size:12px">${fmtDuration(r.duration_ms)}</td>
+      <td><div class="names">${names.join(', ')}</div></td>
+      <td style="color:var(--text-dim);font-size:12px">${fmtDateTime(r.generated_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderErrorsTable() {
+  const tbody = document.getElementById('errors-tbody');
+  const badge = document.getElementById('error-count-badge');
+  const errors = DATA.errors || [];
+
+  if (errors.length > 0) {
+    badge.textContent = `${errors.length} error${errors.length !== 1 ? 's' : ''}`;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if (!errors.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No errors recorded<br><span style="font-size:11px;color:var(--text-muted)">Render failures will appear here with error details</span></td></tr>';
+    return;
+  }
+  tbody.innerHTML = errors.map(e => {
+    const cls = errTypeClass(e.error_type);
+    const msg = (e.error_message || '').replace(/</g,'&lt;');
+    return `<tr>
+      <td style="color:var(--text-dim);font-size:12px;white-space:nowrap">${timeAgo(e.occurred_at)}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${e.user_email || '—'}</td>
+      <td><span class="tpl ${e.template || ''}">${tplLabel(e.template)}</span></td>
+      <td style="font-size:13px">${e.employee_name || '<span style="color:var(--text-muted);font-size:12px">Whole batch</span>'}</td>
+      <td><span class="err-type ${cls}">${e.error_type}</span></td>
+      <td><div class="err-msg" title="${msg}">${msg || '—'}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Requests ────────────────────────────────────────────────────────────────
+function renderRequests() {
+  // KPI cards
+  document.getElementById('req-kpi-pending').textContent  = DATA.pending.length;
+  document.getElementById('req-kpi-approved').textContent = DATA.approved.length;
+
+  // Pending section
+  const pendingBadge = document.getElementById('pending-count-inline');
+  const alert        = document.getElementById('pending-alert');
+  const tbody        = document.getElementById('pending-tbody');
+
+  if (DATA.pending.length > 0) {
+    pendingBadge.textContent = DATA.pending.length;
+    pendingBadge.style.display = 'flex';
+    alert.classList.remove('hidden');
+  } else {
+    pendingBadge.style.display = 'none';
+    alert.classList.add('hidden');
+  }
+
+  tbody.innerHTML = DATA.pending.length
+    ? DATA.pending.map(u => `<tr>
+        <td>${u.email}</td>
+        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td style="color:var(--text-dim)">${timeAgo(u.requested_at)}</td>
+        <td>
+          <button class="btn-approve" onclick="approveUser('${enc(u.email)}')">Approve</button>
+          <button class="btn-deny" onclick="denyUser('${enc(u.email)}')">Deny</button>
+        </td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No pending requests<br><span style="font-size:11px;color:var(--text-muted)">New users who sign in will appear here for approval</span></td></tr>';
+
+  // Approved
+  document.getElementById('approved-tbody').innerHTML = DATA.approved.length
+    ? DATA.approved.map(u => `<tr>
+        <td>${u.email}</td>
+        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td style="color:var(--text-dim)">${timeAgo(u.approved_at || u.requested_at)}</td>
+        <td><button class="btn-deny" onclick="revokeUser('${enc(u.email)}')">Revoke</button></td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No approved users</td></tr>';
+
+  // Denied
+  document.getElementById('denied-tbody').innerHTML = DATA.denied.length
+    ? DATA.denied.map(u => `<tr>
+        <td>${u.email}</td>
+        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td style="color:var(--text-dim)">${timeAgo(u.requested_at)}</td>
+        <td><button class="btn-approve" onclick="approveUser('${enc(u.email)}')">Re-approve</button></td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No denied users</td></tr>';
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+function populateUserDropdown() {
+  const sel = document.getElementById('user-filter-select');
+  const history = DATA.history || [];
+  const emailSet = new Set((DATA.approved || []).map(u => u.email));
+  history.forEach(r => emailSet.add(r.user_email));
+
+  const prev = sel.value;
+  sel.innerHTML = '<option value="all">All Users</option>' +
+    [...emailSet].sort().map(e => `<option value="${e}"${e === prev ? ' selected' : ''}>${e}</option>`).join('');
+  if (prev && prev !== 'all' && emailSet.has(prev)) sel.value = prev;
+}
+
+function setSortUsers(col) {
+  if (currentUserSort === col) {
+    currentUserSortDir = currentUserSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentUserSort = col;
+    currentUserSortDir = 'asc';
+  }
+  renderUsers(currentUserTab, currentUserFilter);
+}
+
+function switchUserFilter(email) {
+  currentUserFilter = email;
+  currentUserTab = 'all';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tpl === 'all'));
+  renderUsers('all', email);
+}
+
+function switchUserTab(tpl) {
+  currentUserTab = tpl;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tpl === tpl));
+  renderUsers(tpl, currentUserFilter);
+}
+
+function renderUsers(tpl = 'all', userFilter = 'all') {
+  const tbody   = document.getElementById('users-tbody');
+  const tfoot   = document.getElementById('users-tfoot');
+  const thead   = document.getElementById('users-thead');
+  const fullHistory = DATA.history || [];
+
+  document.getElementById('user-tpl-tabs').style.display = 'block';
+
+  const isSpecificUser = userFilter !== 'all' && tpl !== 'all';
+  const history = isSpecificUser ? fullHistory.filter(r => r.user_email === userFilter) : fullHistory;
+
+  // Seed approved + denied users (denied shown struck-out)
+  const users = {};
+  (DATA.approved || []).forEach(u => {
+    users[u.email] = { ne:0, bd:0, an:0, durMs:0, durCount:0, revoked:false };
+  });
+  (DATA.denied || []).forEach(u => {
+    if (!users[u.email]) users[u.email] = { ne:0, bd:0, an:0, durMs:0, durCount:0, revoked:true };
+  });
+
+  // Build per-user data
+  history.forEach(r => {
+    if (!users[r.user_email]) users[r.user_email] = { ne:0, bd:0, an:0, durMs:0, durCount:0 };
+    if (r.template === 'new-employee') users[r.user_email].ne += r.employee_count;
+    if (r.template === 'birthday')     users[r.user_email].bd += r.employee_count;
+    if (r.template === 'anniversary')  users[r.user_email].an += r.employee_count;
+    if (r.duration_ms && r.employee_count) {
+      users[r.user_email].durMs    += r.duration_ms;
+      users[r.user_email].durCount += r.employee_count;
+    }
+  });
+
+  const allRows = Object.entries(users).map(([email, c]) => ({
+    email, ne: c.ne, bd: c.bd, an: c.an, total: c.ne + c.bd + c.an,
+    avgMsPerPoster: c.durCount > 0 ? c.durMs / c.durCount : null,
+    revoked: c.revoked || false,
+  }));
+  // When a specific user is selected, only that user's row appears in the table
+  const displayRows = userFilter !== 'all' ? allRows.filter(r => r.email === userFilter) : allRows;
+
+  const TPL_COL = { 'new-employee': 'ne', 'birthday': 'bd', 'anniversary': 'an' };
+  const TPL_COLOR = { 'new-employee': 'var(--tpl-new)', 'birthday': 'var(--tpl-bday)', 'anniversary': 'var(--tpl-ann)' };
+  const TPL_LABEL = { 'new-employee': 'New Employee', 'birthday': 'Birthday', 'anniversary': 'Work Anniversary' };
+
+  // Monthly chart — always shown
+  const chartSection = document.getElementById('monthly-chart-section');
+  chartSection.style.display = 'block';
+  if (tpl === 'all') {
+    document.getElementById('monthly-chart-title').textContent = isSpecificUser ? `${userFilter} — All Templates` : 'All Templates — Monthly Output';
+    renderMonthlyChartAll(userFilter);
+  } else {
+    document.getElementById('monthly-chart-title').textContent =
+      isSpecificUser ? `${TPL_LABEL[tpl]} — ${userFilter}` : `${TPL_LABEL[tpl]} — Monthly Output`;
+    renderMonthlyChart(tpl, userFilter);
+  }
+
+  const tableTitle = document.getElementById('users-table-title');
+  if (tableTitle) tableTitle.textContent = tpl === 'all' ? 'User Breakdown' : `${TPL_LABEL[tpl]} — User Breakdown`;
+
+  if (tpl === 'all') {
+    // All-templates view
+    const sortIndicator = (col) => {
+      if (currentUserSort !== col) return '<span style="color:#444;margin-left:4px">↕</span>';
+      return currentUserSortDir === 'asc'
+        ? '<span style="color:#ccc;margin-left:4px">↑</span>'
+        : '<span style="color:#ccc;margin-left:4px">↓</span>';
+    };
+    const thSort = (col, label, color = '') => `<th class="right" style="cursor:pointer;user-select:none${color ? ';color:'+color : ''}" onclick="setSortUsers('${col}')">${label}${sortIndicator(col)}</th>`;
+
+    thead.innerHTML = `<tr>
+      <th style="cursor:pointer;user-select:none" onclick="setSortUsers('email')">User${sortIndicator('email')}</th>
+      ${thSort('ne', 'New Employee', 'var(--tpl-new)')}
+      ${thSort('bd', 'Birthday', 'var(--tpl-bday)')}
+      ${thSort('an', 'Work Anniversary', 'var(--tpl-ann)')}
+      <th class="right">Avg Speed</th>
+      ${thSort('total', 'Total')}
+    </tr>`;
+
+    // Apply sort if set, otherwise keep insertion order
+    let rows = [...displayRows];
+    if (currentUserSort) {
+      rows.sort((a, b) => {
+        const av = currentUserSort === 'email' ? a.email : (a[currentUserSort] ?? -1);
+        const bv = currentUserSort === 'email' ? b.email : (b[currentUserSort] ?? -1);
+        if (av < bv) return currentUserSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return currentUserSortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No data yet<br><span style="font-size:11px;color:var(--text-muted)">Per-user poster stats will appear here after generation</span></td></tr>';
+      tfoot.innerHTML = ''; return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const revokedStyle = r.revoked ? 'opacity:0.45;' : '';
+      const emailCell = r.revoked
+        ? `<span style="text-decoration:line-through">${r.email}</span>&nbsp;&nbsp;<span style="font-size:10px;font-weight:600;color:#fff;background:#c0392b;display:inline-block;padding:2px 6px;border-radius:4px;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle">Revoked</span>`
+        : r.email;
+      return `<tr
+        onmouseenter="showRowTooltip(event,${r.ne},${r.bd},${r.an})"
+        onmouseleave="hideRowTooltip()"
+        onmousemove="moveRowTooltip(event)"
+        style="cursor:default;${revokedStyle}">
+        <td>${emailCell}</td>
+        <td class="right" style="color:var(--tpl-new)">${r.ne || '—'}</td>
+        <td class="right" style="color:var(--tpl-bday)">${r.bd || '—'}</td>
+        <td class="right" style="color:var(--tpl-ann)">${r.an || '—'}</td>
+        <td class="right" style="color:var(--text-dim);font-size:12px">${fmtDurationPerPoster(r.avgMsPerPoster)}</td>
+        <td class="right">${r.total}</td>
+      </tr>`;
+    }).join('');
+
+    const [totNe, totBd, totAn] = ['ne','bd','an'].map(k => rows.reduce((s,r) => s + r[k], 0));
+    tfoot.innerHTML = `<tr style="border-top:2px solid var(--border-2)">
+      <td style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em">All-time output</td>
+      <td class="right" style="color:var(--tpl-new)">${totNe}</td>
+      <td class="right" style="color:var(--tpl-bday)">${totBd}</td>
+      <td class="right" style="color:var(--tpl-ann)">${totAn}</td>
+      <td></td>
+      <td class="right" style="color:var(--accent);font-weight:600">${totNe + totBd + totAn}</td>
+    </tr>`;
+
+  } else {
+    // Per-template view
+    const col   = TPL_COL[tpl];
+    const color = TPL_COLOR[tpl];
+    const label = TPL_LABEL[tpl];
+
+    // Build last 6 months keys + short labels
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const lbl = d.toLocaleDateString('en-US', { month: 'short' });
+      months.push({ key, lbl });
+    }
+
+    // Per-user per-template avg duration + monthly breakdown
+    const tplDuration = {};
+    const monthlyByUser = {};
+    history.filter(r => r.template === tpl).forEach(r => {
+      if (!tplDuration[r.user_email]) tplDuration[r.user_email] = { ms: 0, count: 0 };
+      if (r.duration_ms && r.employee_count) {
+        tplDuration[r.user_email].ms    += r.duration_ms;
+        tplDuration[r.user_email].count += r.employee_count;
+      }
+      const d  = new Date(r.generated_at);
+      const mk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (!monthlyByUser[r.user_email]) monthlyByUser[r.user_email] = {};
+      monthlyByUser[r.user_email][mk] = (monthlyByUser[r.user_email][mk] || 0) + r.employee_count;
+    });
+
+    const colCount = 2 + months.length + 1; // User + Avg Speed + 6 months + Total
+
+    const si = (c) => currentUserSort !== c
+      ? '<span style="color:#444;margin-left:4px">↕</span>'
+      : (currentUserSortDir === 'asc' ? '<span style="color:#ccc;margin-left:4px">↑</span>' : '<span style="color:#ccc;margin-left:4px">↓</span>');
+    const thS = (c, lbl, style='') => `<th class="right" style="cursor:pointer;user-select:none${style}" onclick="setSortUsers('${c}')">${lbl}${si(c)}</th>`;
+
+    thead.innerHTML = `<tr>
+      <th style="cursor:pointer;user-select:none" onclick="setSortUsers('email')">User${si('email')}</th>
+      <th class="right">Avg Speed</th>
+      ${months.map(m => `<th class="right" style="color:var(--text-dim)">${m.lbl}</th>`).join('')}
+      ${thS(col, 'Total', `;color:${color}`)}
+    </tr>`;
+
+    let rows = [...displayRows];
+    if (currentUserSort) {
+      rows.sort((a, b) => {
+        const av = currentUserSort === 'email' ? a.email : (a[currentUserSort] ?? -1);
+        const bv = currentUserSort === 'email' ? b.email : (b[currentUserSort] ?? -1);
+        if (av < bv) return currentUserSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return currentUserSortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    if (!rows.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="${colCount}">No approved users yet</td></tr>`;
+      tfoot.innerHTML = ''; return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const td = tplDuration[r.email];
+      const avgMs = td && td.count > 0 ? td.ms / td.count : null;
+      const monthly = monthlyByUser[r.email] || {};
+      const monthCells = months.map(m => {
+        const v = monthly[m.key];
+        return `<td class="right" style="color:var(--text-dim)">${v || '—'}</td>`;
+      }).join('');
+      const revokedStyle = r.revoked ? 'opacity:0.45;' : '';
+      const emailCell = r.revoked
+        ? `<span style="text-decoration:line-through">${r.email}</span>&nbsp;&nbsp;<span style="font-size:10px;font-weight:600;color:#fff;background:#c0392b;display:inline-block;padding:2px 6px;border-radius:4px;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle">Revoked</span>`
+        : r.email;
+      return `<tr style="${revokedStyle}">
+        <td>${emailCell}</td>
+        <td class="right" style="color:var(--text-dim);font-size:12px">${fmtDurationPerPoster(avgMs)}</td>
+        ${monthCells}
+        <td class="right" style="color:${color}">${r[col]}</td>
+      </tr>`;
+    }).join('');
+
+    const tot = rows.reduce((s, r) => s + r[col], 0);
+    const monthTotals = months.map(m => rows.reduce((s, r) => s + ((monthlyByUser[r.email] || {})[m.key] || 0), 0));
+    tfoot.innerHTML = `<tr>
+      <td>Total</td>
+      <td></td>
+      ${monthTotals.map(t => `<td class="right" style="color:var(--text-dim)">${t || '—'}</td>`).join('')}
+      <td class="right" style="color:var(--accent)">${tot}</td>
+    </tr>`;
+  }
+}
+
+function renderMonthlyChartAll(userFilter = 'all') {
+  const allHistory = DATA.history || [];
+  const history = userFilter !== 'all' ? allHistory.filter(r => r.user_email === userFilter) : allHistory;
+
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      lbl: `${d.toLocaleDateString('en-US',{month:'short'})} '${String(d.getFullYear()).slice(2)}`,
+    });
+  }
+
+  const labels = months.map(m => m.lbl);
+  const mkByIndex = months.map(m => m.key);
+  const tplKeys = ['birthday', 'new-employee', 'anniversary'];
+
+  const byTpl = { 'new-employee':{}, birthday:{}, anniversary:{} };
+  history.forEach(r => {
+    if (!byTpl[r.template]) return;
+    const d = new Date(r.generated_at);
+    const mk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    byTpl[r.template][mk] = (byTpl[r.template][mk] || 0) + r.employee_count;
+  });
+
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  if (charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'Birthday',         data: months.map(m => byTpl['birthday'][m.key]      || 0), backgroundColor:'#ffb13366', borderColor:'#ffb133', borderWidth:1, borderRadius:4 },
+        { label:'New Employee',     data: months.map(m => byTpl['new-employee'][m.key]  || 0), backgroundColor:'#eb600466', borderColor:'#eb6004', borderWidth:1, borderRadius:4 },
+        { label:'Work Anniversary', data: months.map(m => byTpl['anniversary'][m.key]   || 0), backgroundColor:'#e0404066', borderColor:'#e04040', borderWidth:1, borderRadius:4 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color:'#666', font:{ size:11 } } },
+        tooltip: {
+          enabled: false,
+          external: makeExternalTooltip(dp => {
+            const mk = mkByIndex[dp.dataIndex];
+            const tpl = tplKeys[dp.datasetIndex];
+            const byUser = {};
+            history.filter(r => r.template === tpl).forEach(r => {
+              const d = new Date(r.generated_at);
+              if (`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk)
+                byUser[r.user_email] = (byUser[r.user_email]||0) + r.employee_count;
+            });
+            const denied = new Set((DATA.denied||[]).map(u => u.email));
+            return Object.entries(byUser).sort((a,b)=>b[1]-a[1]).map(([e,c],i) => ({ name: getFirstName(e), count:c, color: USER_PALETTE[i%USER_PALETTE.length], isRevoked: denied.has(e) }));
+          }),
+        },
+      },
+      scales: {
+        x: { grid:{ color:'#252525' }, ticks:{ color:'#555', font:{ size:10 } } },
+        y: { beginAtZero:true, grid:{ color:'#252525' }, ticks:{ color:'#555', font:{ size:10 }, stepSize:1 } },
+      },
+    },
+  });
+}
+
+function renderMonthlyChart(tpl, userFilter = 'all') {
+  const allHistory = DATA.history || [];
+  const history = (userFilter !== 'all' ? allHistory.filter(r => r.user_email === userFilter) : allHistory)
+    .filter(r => r.template === tpl);
+
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      lbl: `${d.toLocaleDateString('en-US',{month:'short'})} '${String(d.getFullYear()).slice(2)}`,
+    });
+  }
+
+  const TPL_COLOR = { 'new-employee':'#eb6004', 'birthday':'#ffb133', 'anniversary':'#e04040' };
+  const color = TPL_COLOR[tpl] || '#0099ff';
+  const labels = months.map(m => m.lbl);
+  const mkByIndex = months.map(m => m.key);
+
+  const byMonth = {};
+  history.forEach(r => {
+    const d = new Date(r.generated_at);
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    byMonth[k] = (byMonth[k]||0) + r.employee_count;
+  });
+
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  if (charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Posters', data: months.map(m => byMonth[m.key]||0), backgroundColor: color+'66', borderColor: color, borderWidth:1, borderRadius:4 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          enabled: false,
+          external: makeExternalTooltip(dp => {
+            const mk = mkByIndex[dp.dataIndex];
+            const byUser = {};
+            history.forEach(r => {
+              const d = new Date(r.generated_at);
+              if (`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk)
+                byUser[r.user_email] = (byUser[r.user_email]||0) + r.employee_count;
+            });
+            const denied = new Set((DATA.denied||[]).map(u => u.email));
+            return Object.entries(byUser).sort((a,b)=>b[1]-a[1]).map(([e,c],i) => ({ name: getFirstName(e), count:c, color: USER_PALETTE[i%USER_PALETTE.length], isRevoked: denied.has(e) }));
+          }),
+        },
+      },
+      scales: {
+        x: { grid:{ color:'#252525' }, ticks:{ color:'#555', font:{ size:10 } } },
+        y: { beginAtZero:true, grid:{ color:'#252525' }, ticks:{ color:'#555', font:{ size:10 }, stepSize:1 } },
+      },
+    },
+  });
+}
+
+// ─── Row tooltip ─────────────────────────────────────────────────────────────
+function showRowTooltip(e, ne, bd, an) {
+  const tip = document.getElementById('row-tooltip');
+  const total = ne + bd + an;
+  const bar = (val, color) => {
+    const pct = total > 0 ? Math.round(val / total * 100) : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:80px;font-size:11px;color:#888">${color === 'var(--tpl-new)' ? 'New Employee' : color === 'var(--tpl-bday)' ? 'Birthday' : 'Work Anniv'}</div>
+      <div style="flex:1;height:6px;background:#222;border-radius:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+      </div>
+      <div style="width:24px;text-align:right;font-size:12px;color:#ccc">${val}</div>
+    </div>`;
+  };
+  tip.innerHTML = bar(ne, 'var(--tpl-new)') + bar(bd, 'var(--tpl-bday)') + bar(an, 'var(--tpl-ann)') +
+    `<div style="border-top:1px solid #2a2a2a;margin-top:4px;padding-top:6px;display:flex;justify-content:space-between;font-size:12px"><span style="color:#666">Total</span><span style="color:#fff;font-weight:600">${total}</span></div>`;
+  tip.style.display = 'block';
+  moveRowTooltip(e);
+}
+function moveRowTooltip(e) {
+  const tip = document.getElementById('row-tooltip');
+  const x = e.clientX + 16, y = e.clientY - 10;
+  tip.style.left = (x + tip.offsetWidth > window.innerWidth ? x - tip.offsetWidth - 32 : x) + 'px';
+  tip.style.top  = y + 'px';
+}
+function hideRowTooltip() {
+  document.getElementById('row-tooltip').style.display = 'none';
+}
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
+async function approveUser(encodedEmail) {
+  const email = decodeURIComponent(encodedEmail);
+  try {
+    const r = await fetch(`/admin/approve/${encodedEmail}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`Approved ${email}`, 'ok');
+    await loadData();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function denyUser(encodedEmail) {
+  const email = decodeURIComponent(encodedEmail);
+  if (!await showConfirm('Deny access', `Deny access for ${email}?`, 'Deny')) return;
+  try {
+    const r = await fetch(`/admin/deny/${encodedEmail}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`Denied ${email}`);
+    await loadData();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function revokeUser(encodedEmail) {
+  const email = decodeURIComponent(encodedEmail);
+  if (!await showConfirm('Revoke access', `Revoke access for ${email}? They will need to request approval again.`, 'Revoke')) return;
+  try {
+    const r = await fetch(`/admin/revoke/${encodedEmail}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`Revoked ${email}`);
+    await loadData();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+// ─── Custom confirm ───────────────────────────────────────────────────────────
+let _confirmResolve = null;
+function showConfirm(title, body, okLabel = 'Confirm', danger = true) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').textContent  = body;
+    const ok = document.getElementById('confirm-ok');
+    ok.textContent = okLabel;
+    ok.style.background = danger ? '#c0392b' : 'var(--accent)';
+    ok.style.color = '#fff';
+    const overlay = document.getElementById('confirm-overlay');
+    overlay.style.display = 'flex';
+  });
+}
+function resolveConfirm(result) {
+  document.getElementById('confirm-overlay').style.display = 'none';
+  if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+}
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) resolveConfirm(false);
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function scheduleRefresh() {
+  const delay = (DATA.pending?.length || 0) > 0 ? 5000 : 15000;
+  setTimeout(() => { loadData().finally(scheduleRefresh); }, delay);
+}
+loadData().finally(scheduleRefresh);
+</script>
+</body>
+</html>

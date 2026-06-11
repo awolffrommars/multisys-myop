@@ -5,14 +5,197 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { PassThrough } = require('stream');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 require('dotenv').config();
 
+const nodemailer = require('nodemailer');
 const { parseCSV } = require('./services/csv');
 const { buildPhotoMap, findPhoto, normalizeNameKey } = require('./services/matcher');
 const { renderPoster, closeBrowser } = require('./services/poster');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ─── Auth & Admin ──────────────────────────────────────────────────────────
+const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || '';
+const WHITELIST      = new Set(
+  (process.env.WHITELIST || '').split(',').map(s => s.trim()).filter(Boolean)
+);
+const AUTH_ENABLED = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+let db;
+try { db = require('./services/db'); } catch (e) { console.warn('DB unavailable:', e.message); }
+
+// ─── Email helpers ────────────────────────────────────────────────────────
+async function sendEmail(to, subject, text) {
+  if (!process.env.GMAIL_APP_PASSWORD) return;
+  const t = nodemailer.createTransport({ service: 'gmail', auth: { user: ADMIN_EMAIL, pass: process.env.GMAIL_APP_PASSWORD } });
+  await t.sendMail({ from: ADMIN_EMAIL, to, subject, text });
+}
+function sendAccessRequestEmail(email, name) {
+  const url = process.env.APP_URL || 'http://localhost:3000';
+  return sendEmail(ADMIN_EMAIL, `MYOP Access Request — ${email}`,
+    `${name || email} is requesting access to Make Your Own Poster.\n\nApprove or deny at: ${url}/admin\n\nEmail: ${email}`);
+}
+function sendApprovedEmail(email) {
+  const url = process.env.APP_URL || 'http://localhost:3000';
+  return sendEmail(email, 'You have been approved — Make Your Own Poster',
+    `Your access to Make Your Own Poster has been approved.\n\nSign in here: ${url}`);
+}
+
+// ─── Page templates ───────────────────────────────────────────────────────
+const _PS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#090909;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}.box{background:#141414;border:1px solid #222;border-radius:16px;padding:40px;width:100%;max-width:360px;text-align:center}.logo{font-size:20px;font-weight:700;margin-bottom:8px}.sub{font-size:13px;color:#555;margin-bottom:32px}.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;background:#fff;color:#111;border:none;border-radius:100px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none}.btn:hover{background:#e8e8e8}.err{margin-bottom:20px;font-size:13px;color:#f87171}`;
+const _GSVG = `<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>`;
+const _HEAD = (title) => `<!DOCTYPE html><html><head><title>${title}</title><style>${_PS}</style></head><body><div class="box"><img src="/logo-multisys.svg" alt="Multisys" style="height:32px;margin-bottom:16px"/><div class="logo">Make Your Own Poster</div><div class="sub">Multisys Internal Tool</div>`;
+
+const loginPage = (err = '') => _HEAD('Sign In — MYOP') +
+  (err ? `<div class="err">${err}</div>` : '') +
+  `<a class="btn" href="/auth/google">${_GSVG} Sign in with Google</a></div></body></html>`;
+
+const waitingPage = (email) => _HEAD('Awaiting Approval — MYOP') +
+  `<style>.spin{width:36px;height:36px;border:3px solid #333;border-top-color:#0099ff;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 20px}@keyframes s{to{transform:rotate(360deg)}}</style>
+  <div class="spin"></div>
+  <p style="font-size:13px;color:#aaa;margin-bottom:8px">Your request has been sent to the admin.</p>
+  <p style="font-size:12px;color:#555">This page will update automatically when approved.</p>
+  <p style="font-size:11px;color:#444;margin-top:12px">${email}</p>
+  <a href="/logout" style="display:block;margin-top:24px;font-size:12px;color:#555;text-decoration:none">Sign out</a>
+  </div><script>setInterval(async()=>{const r=await fetch('/auth/status').then(r=>r.json()).catch(()=>({}));if(r.status==='approved')location.href='/';if(r.status==='denied')location.href='/denied';},5000);</script></body></html>`;
+
+const deniedPage = () => _HEAD('Access Denied — MYOP') +
+  `<p class="err" style="margin-bottom:20px">Your request was denied. Contact ${ADMIN_EMAIL} for help.</p>
+  <a href="/logout" class="btn" style="justify-content:center;background:#1c1c1c;color:#fff;border:1px solid #333">Sign out</a>
+  </div></body></html>`;
+
+if (AUTH_ENABLED) {
+  app.use(session({
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+    resave: false, saveUninitialized: false,
+    cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 },
+  }));
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  passport.use(new GoogleStrategy({
+    clientID:     process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL:  process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback',
+  }, (accessToken, refreshToken, profile, done) => {
+    const email = profile.emails?.[0]?.value;
+    if (!email) return done(null, false, { message: 'no-email' });
+    return done(null, { email, name: profile.displayName });
+  }));
+
+  passport.serializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user));
+
+  // Full access: whitelisted OR approved in DB
+  const requireAccess = (req, res, next) => {
+    if (!req.isAuthenticated()) return res.redirect('/login');
+    const { email } = req.user;
+    if (WHITELIST.has(email)) { db?.updateLastSeen(email); return next(); }
+    const user = db?.getUser(email);
+    if (user?.status === 'approved') { db.updateLastSeen(email); return next(); }
+    if (user?.status === 'denied') return res.redirect('/denied');
+    return res.redirect('/waiting');
+  };
+
+  const requireAdmin = (req, res, next) => {
+    if (!req.isAuthenticated() || req.user.email !== ADMIN_EMAIL) return res.status(403).send('Forbidden');
+    next();
+  };
+
+  // ─── Auth routes ──────────────────────────────────────────────────────────
+  app.get('/login', (req, res) =>
+    res.send(loginPage(req.query.denied ? 'Your account does not have access.' : '')));
+
+  app.get('/auth/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
+
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login?denied=1' }),
+    async (req, res) => {
+      const { email, name } = req.user;
+      if (WHITELIST.has(email)) return res.redirect('/');
+      const existing = db?.getUser(email);
+      if (existing?.status === 'approved') return res.redirect('/');
+      if (existing?.status === 'denied') { req.logout(() => {}); return res.redirect('/denied'); }
+      const isNew = !existing;
+      db?.upsertPending(email, name);
+      if (isNew) sendAccessRequestEmail(email, name).catch(e => console.error('Email error:', e.message));
+      res.redirect('/waiting');
+    }
+  );
+
+  app.get('/waiting', (req, res) => {
+    if (!req.isAuthenticated()) return res.redirect('/login');
+    if (WHITELIST.has(req.user.email)) return res.redirect('/');
+    const user = db?.getUser(req.user.email);
+    if (user?.status === 'approved') return res.redirect('/');
+    if (user?.status === 'denied')   return res.redirect('/denied');
+    res.send(waitingPage(req.user.email));
+  });
+
+  app.get('/denied',      (req, res) => res.send(deniedPage()));
+  app.get('/logout',      (req, res) => req.logout(() => res.redirect('/login')));
+  app.get('/auth/status', (req, res) => {
+    if (!req.isAuthenticated()) return res.json({ status: 'unauthenticated' });
+    const { email } = req.user;
+    if (WHITELIST.has(email)) return res.json({ status: 'approved' });
+    const user = db?.getUser(email);
+    res.json({ status: user?.status || 'pending' });
+  });
+  app.get('/me', (req, res) => {
+    if (req.isAuthenticated()) return res.json({ email: req.user.email, name: req.user.name });
+    res.json({});
+  });
+
+  // ─── Admin routes ─────────────────────────────────────────────────────────
+  app.get('/admin', requireAdmin, (req, res) =>
+    res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+
+  app.get('/admin/data', requireAdmin, (req, res) => {
+    if (!db) return res.json({ pending: [], approved: [], denied: [], history: [], errors: [], stats: { byTemplate: [], byUser: [], activity: [], totalPosters: 0 } });
+    res.json({
+      pending:  db.getUsersByStatus('pending'),
+      approved: db.getUsersByStatus('approved'),
+      denied:   db.getUsersByStatus('denied'),
+      history:  db.getHistory(200),
+      errors:   db.getErrors(50),
+      stats:    db.getStats(),
+    });
+  });
+
+  app.post('/admin/approve/:email', requireAdmin, async (req, res) => {
+    const email = decodeURIComponent(req.params.email);
+    db?.updateStatus(email, 'approved');
+    sendApprovedEmail(email).catch(e => console.error('Email error:', e.message));
+    res.json({ ok: true });
+  });
+
+  app.post('/admin/deny/:email', requireAdmin, (req, res) => {
+    db?.updateStatus(decodeURIComponent(req.params.email), 'denied');
+    res.json({ ok: true });
+  });
+
+  app.post('/admin/revoke/:email', requireAdmin, (req, res) => {
+    db?.updateStatus(decodeURIComponent(req.params.email), 'denied');
+    res.json({ ok: true });
+  });
+
+  // ─── Protect app routes ───────────────────────────────────────────────────
+  app.use('/index.html',      requireAccess);
+  app.use('/prepare',         requireAccess);
+  app.use('/generate',        requireAccess);
+  app.use('/preview',         requireAccess);
+  app.use('/download',        requireAccess);
+  app.use('/regenerate',      requireAccess);
+  app.use('/reload-template', requireAccess);
+
+  app.get('/', requireAccess, (req, res) =>
+    res.sendFile(path.join(__dirname, 'public', 'index.html')));
+}
 
 app.use(express.static('public'));
 
@@ -123,6 +306,7 @@ app.get('/generate/:jobId', async (req, res) => {
   }
 
   job.status = 'generating';
+  job.startedAt = Date.now();
   job.posters = [];
   job.photos = [];
 
@@ -132,6 +316,15 @@ app.get('/generate/:jobId', async (req, res) => {
 
   function emit(data) {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  function classifyError(msg = '') {
+    const m = msg.toLowerCase();
+    if (m.includes('timeout') || m.includes('timed out'))                                       return 'Timeout';
+    if (m.includes('net::') || m.includes('err_network') || m.includes('connection refused'))   return 'Network error';
+    if (m.includes('protocol error') || m.includes('session closed') || m.includes('target closed') || m.includes('browser has been closed')) return 'Browser crash';
+    if (m.includes('enoent') || m.includes('no such file'))                                     return 'Missing file';
+    return 'Render failure';
   }
 
   const CONCURRENCY = 2; // render 2 posters at a time
@@ -163,6 +356,9 @@ app.get('/generate/:jobId', async (req, res) => {
           return { photoData, name: emp.fullName, buffer: pngBuffer, dateHired: emp.dateHired };
         } catch (err) {
           emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
+          if (AUTH_ENABLED && req.user && db) {
+            try { db.logError(req.user.email, job.templateKey, emp.fullName, classifyError(err.message), err.message); } catch {}
+          }
           return null;
         }
       }));
@@ -177,12 +373,19 @@ app.get('/generate/:jobId', async (req, res) => {
     }
 
     job.status = 'done';
+    if (AUTH_ENABLED && req.user && db) {
+      const durationMs = Date.now() - job.startedAt;
+      try { db.logHistory(req.user.email, job.templateKey, job.posters.length, job.posters.map(p => p.name), durationMs); } catch {}
+    }
 
     emit({ type: 'complete', count: job.posters.length });
     res.end();
   } catch (err) {
     job.status = 'error';
     emit({ type: 'error', message: err.message });
+    if (AUTH_ENABLED && req.user && db) {
+      try { db.logError(req.user.email, job.templateKey, null, 'Server error', err.message); } catch {}
+    }
     res.end();
   } finally {
     await closeBrowser();

@@ -4,3 +4,8 @@ node_modules/
 .env.*
 credentials.json
 .playwright-mcp/
+data/
+templates/*.png
+.agents/
+.claude/
+skills-lock.json

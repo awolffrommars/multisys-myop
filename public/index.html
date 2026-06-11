@@ -9,6 +9,13 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Global keyboard focus ring */
+    :focus-visible {
+      outline: 2px solid #0099ff;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
     body {
       background: #090909;
       color: #fff;
@@ -216,6 +223,8 @@
       vertical-align: middle;
     }
     .preview-table tr:last-child td { border-bottom: none; }
+    .preview-table tbody tr { transition: background 150ms ease; }
+    .preview-table tbody tr:hover { background: rgba(255,255,255,0.03); }
     .preview-table td:first-child,
     .preview-table th:first-child { min-width: 175px; }
     .preview-table .th-photo { width: 90px; white-space: nowrap; }
@@ -348,6 +357,9 @@
     }
 
     /* Edit modal */
+    @keyframes fadeInBackdrop { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUpModal   { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
     .edit-modal-overlay {
       display: none;
       position: fixed;
@@ -358,7 +370,13 @@
       justify-content: center;
       padding: 24px;
     }
-    .edit-modal-overlay.open { display: flex; }
+    .edit-modal-overlay.open {
+      display: flex;
+      animation: fadeInBackdrop 150ms ease forwards;
+    }
+    .edit-modal-overlay.open .edit-modal-box {
+      animation: slideUpModal 200ms ease forwards;
+    }
     .edit-modal-box {
       background: #141414;
       border: 1px solid #262626;
@@ -390,7 +408,13 @@
       padding: 24px;
     }
 
-    .lightbox.open { display: flex; }
+    .lightbox.open {
+      display: flex;
+      animation: fadeInBackdrop 150ms ease forwards;
+    }
+    .lightbox.open img {
+      animation: slideUpModal 200ms ease forwards;
+    }
 
     .lightbox img {
       max-width: 100%;
@@ -471,9 +495,9 @@
     .template-option:not(.disabled):hover { border-color: #444; }
 
     .template-option.active { background: #1c1c1c; }
-    .template-option.active.tpl-birthday      { border-color: #cc3333; background: #cc333310; }
-    .template-option.active.tpl-new-employee  { border-color: #ffb133; background: #ffb13310; }
-    .template-option.active.tpl-anniversary   { border-color: #eb6004; background: #eb600410; }
+    .template-option.active.tpl-birthday      { border-color: #ffb133; background: #ffb13310; }
+    .template-option.active.tpl-new-employee  { border-color: #eb6004; background: #eb600410; }
+    .template-option.active.tpl-anniversary   { border-color: #e04040; background: #e0404010; }
 
     .template-option.disabled {
       opacity: 0.35;
@@ -577,7 +601,7 @@
       width: 100%;
     }
 
-    .form-input:focus { border-color: #444; }
+    .form-input:focus { border-color: #555; box-shadow: 0 0 0 3px rgba(0,153,255,0.12); }
     .form-input::placeholder { color: #3a3a3a; }
 
     .manual-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
@@ -707,7 +731,7 @@
     }
 
     .success-card p { font-size: 15px; color: #fff; }
-    .success-card .count { font-size: 13px; color: #22c55e; margin-top: 2px; }
+    .success-card .count { font-size: 13px; color: #22c55e; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
     /* Locked card (no template selected) */
     .card.locked {
@@ -747,6 +771,7 @@
   <div class="main">
 
     <div class="header">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px" id="logoutBar"></div>
       <img class="logo" src="/logo-multisys.svg" alt="Multisys" />
       <h1 class="title">Make Your Own Poster</h1>
       <p class="subtitle">Generate recurring activity announcements in bulk.</p>
@@ -767,6 +792,18 @@
           </div>
           <div class="template-option tpl-anniversary">
             <div class="template-option-name">Work Anniversary</div>
+          </div>
+        </div>
+        <div id="csvFormatRow" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #222;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="width:100%">
+            <div style="font-size:11px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">CSV Columns</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+              <div id="csvFormatCols" style="font-size:13px;color:#aaa;margin-bottom:0"></div>
+              <span style="color:#333;font-size:13px;margin:0 6px">|</span>
+              <a id="csvSampleLink" href="#" target="_blank" style="font-size:13px;color:#aaa;text-decoration:none;white-space:nowrap;display:flex;align-items:center;gap:4px">Open Template Sheet <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            </div>
+            <div id="csvPhotoHint" class="hint" style="margin:0;font-size:12px">Photo filenames can be in any name order —
+              <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"</div>
           </div>
         </div>
       </div>
@@ -795,12 +832,6 @@
             <button class="zone-remove-btn" id="photoRemoveBtn" style="display:none" title="Remove all photos">×</button>
           </div>
           <div class="photo-list" id="photoList"></div>
-
-          <p class="hint" id="csvHint">
-            CSV columns: <code>Full Name</code>, <code>Position</code>, <code>Department</code><br>
-            Photo filenames can be in any name order —
-            <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"
-          </p>
         </div>
 
         <!-- Manual entry mode -->
@@ -1101,20 +1132,25 @@
     if (deptLabel) deptLabel.innerHTML = isBirthday ? 'Division' : 'Department';
     if (divLabel) divLabel.innerHTML = isBirthday ? 'Department' : 'Division';
 
-    // CSV hint
-    const hint = document.getElementById('csvHint');
-    if (isBirthday) {
-      hint.innerHTML = `CSV columns: <code>Birthday</code>, <code>Full Name</code>, <code>Position</code>, <code>Division</code>, <code>Department</code><br>
-        Photo filenames can be in any name order —
-        <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"`;
-    } else if (isAnniversary) {
-      hint.innerHTML = `CSV columns: <code>Date Hired</code>, <code>Years</code>, <code>Full Name</code>, <code>Position</code>, <code>Division</code>, <code>Department</code><br>
-        Photo filenames can be in any name order —
-        <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"`;
+    // CSV format row below template selector
+    const csvFormatRow = document.getElementById('csvFormatRow');
+    const csvFormatCols = document.getElementById('csvFormatCols');
+    const csvSampleLink = document.getElementById('csvSampleLink');
+    const CSV_FORMATS = {
+      birthday:       { cols: 'Birthday, Full Name, Position, Division, Department',
+                        sheet: 'https://docs.google.com/spreadsheets/d/1GacO5q9q5VrlN6dXrPeC0EA0rr3QJ65Nw5pe2s282XM/edit?usp=sharing' },
+      'new-employee': { cols: 'Full Name, Position, Department',
+                        sheet: 'https://docs.google.com/spreadsheets/d/1SuuJHCiCrhc5KfPhZlpsI2R-a0yGngFwAe-IuXxUqYg/edit?usp=sharing' },
+      anniversary:    { cols: 'Date Hired, Years, Full Name, Position, Division, Department',
+                        sheet: 'https://docs.google.com/spreadsheets/d/1qBQLyo7vK846wbNEaXI63g66NGJLTg3LaML8-QlOsIE/edit?usp=sharing' },
+    };
+    const fmt = CSV_FORMATS[selectedTemplate];
+    if (fmt) {
+      csvFormatCols.textContent = fmt.cols;
+      csvSampleLink.href = fmt.sheet;
+      csvFormatRow.style.display = 'flex';
     } else {
-      hint.innerHTML = `CSV columns: <code>Full Name</code>, <code>Position</code>, <code>Department</code><br>
-        Photo filenames can be in any name order —
-        <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"`;
+      csvFormatRow.style.display = 'none';
     }
 
     // Preview table columns
@@ -2345,6 +2381,19 @@
     if (selectedTemplate !== 'anniversary') return;
     if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); document.getElementById('manualDivision').focus(); }
   });
+
+  // Show logged-in user + logout link if auth is enabled
+  fetch('/me').then(r => r.json()).then(user => {
+    if (!user.email) return;
+    const bar = document.getElementById('logoutBar');
+    const adminLink = user.email === 'kfgoting@multisyscorp.com'
+      ? `<a href="/admin" style="font-size:12px;color:#0099ff;text-decoration:none;font-weight:500">Admin</a>`
+      : '';
+    bar.innerHTML = `<span style="font-size:12px;color:#555">${user.email}</span>
+      <span style="color:#333;margin:0 10px;font-size:12px">|</span>
+      ${adminLink ? adminLink + '<span style="color:#333;margin:0 10px;font-size:12px">|</span>' : ''}
+      <a href="/logout" style="font-size:12px;color:#555;text-decoration:none">Sign out</a>`;
+  }).catch(() => {});
 </script>
 </body>
 </html>

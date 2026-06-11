@@ -16,9 +16,8 @@ git push origin main
 echo ">>> Pushing to HuggingFace..."
 git branch -D hf 2>/dev/null || true
 git checkout --orphan hf
-git rm --cached "templates/Birthday Poster_Template.png" "templates/New Employee Poster_Template.png" "templates/Work Anniversary_Template.png" 2>/dev/null || true
-printf '\ntemplates/Birthday Poster_Template.png\ntemplates/New Employee Poster_Template.png\ntemplates/Work Anniversary_Template.png' >> .gitignore
 git add .
+git add -f "templates/Birthday Poster_Template.png" "templates/New Employee Poster_Template.png" "templates/Work Anniversary_Template.png"
 git commit -m "HF deploy"
 git push hf hf:main --force
 git checkout main
