@@ -2386,13 +2386,21 @@
   fetch('/me').then(r => r.json()).then(user => {
     if (!user.email) return;
     const bar = document.getElementById('logoutBar');
-    const adminLink = user.email === 'kfgoting@multisyscorp.com'
+    const adminLink = user.isAdmin
       ? `<a href="/admin" style="font-size:12px;color:#0099ff;text-decoration:none;font-weight:500">Admin</a>`
       : '';
     bar.innerHTML = `<span style="font-size:12px;color:#555">${user.email}</span>
       <span style="color:#333;margin:0 10px;font-size:12px">|</span>
       ${adminLink ? adminLink + '<span style="color:#333;margin:0 10px;font-size:12px">|</span>' : ''}
       <a href="/logout" style="font-size:12px;color:#555;text-decoration:none">Sign out</a>`;
+
+    // Poll every 15s — kicks revoked users live without waiting for a page reload
+    setInterval(() => {
+      fetch('/auth/status').then(r => r.json()).then(({ status }) => {
+        if (status === 'denied')          window.location.href = '/denied';
+        if (status === 'unauthenticated') window.location.href = '/login';
+      }).catch(() => {});
+    }, 15000);
   }).catch(() => {});
 </script>
 </body>

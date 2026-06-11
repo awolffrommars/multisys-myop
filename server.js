@@ -147,7 +147,7 @@ if (AUTH_ENABLED) {
     res.json({ status: user?.status || 'pending' });
   });
   app.get('/me', (req, res) => {
-    if (req.isAuthenticated()) return res.json({ email: req.user.email, name: req.user.name });
+    if (req.isAuthenticated()) return res.json({ email: req.user.email, name: req.user.name, isAdmin: req.user.email === ADMIN_EMAIL });
     res.json({});
   });
 
