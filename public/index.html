@@ -128,8 +128,8 @@
 
     .zone-remove-btn {
       position: absolute;
-      top: 8px; right: 8px;
-      width: 22px; height: 22px;
+      top: 4px; right: 4px;
+      width: 36px; height: 36px;
       border-radius: 50%;
       border: none;
       background: #2a2a2a;
@@ -744,6 +744,14 @@
     .step { display: none; }
     .step.active { display: block; }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     @media (max-width: 600px) {
       /* Progress rows: stack name + detail vertically, status floats right */
       .progress-info {
@@ -784,13 +792,13 @@
       <div class="card" style="margin-bottom:16px">
         <div class="card-title">Select Template</div>
         <div class="template-grid">
-          <div class="template-option tpl-birthday">
+          <div class="template-option tpl-birthday" tabindex="0" role="button" aria-pressed="false">
             <div class="template-option-name">Birthday Poster</div>
           </div>
-          <div class="template-option tpl-new-employee">
+          <div class="template-option tpl-new-employee" tabindex="0" role="button" aria-pressed="false">
             <div class="template-option-name">New Employee Poster</div>
           </div>
-          <div class="template-option tpl-anniversary">
+          <div class="template-option tpl-anniversary" tabindex="0" role="button" aria-pressed="false">
             <div class="template-option-name">Work Anniversary</div>
           </div>
         </div>
@@ -967,33 +975,33 @@
     <div class="edit-modal-title">Edit Poster</div>
     <div id="editAnniversaryRow" style="display:none;margin-bottom:12px;gap:12px">
       <div class="form-field" id="editDateHiredField" style="flex:1">
-        <label class="form-label">Date Hired</label>
+        <label class="form-label" for="editDateHired">Date Hired</label>
         <input class="form-input" type="text" id="editDateHired" placeholder="May 01" autocomplete="off" style="width:180px" />
         <div class="photo-match-hint" id="editDateHiredSpellingHint" style="display:none;margin-top:2px"></div>
       </div>
       <div class="form-field" id="editYearsField" style="flex:0 0 auto">
-        <label class="form-label">Years at the Company</label>
+        <label class="form-label" for="editYears">Years at the Company</label>
         <input class="form-input" type="text" id="editYears" placeholder="3" autocomplete="off" inputmode="numeric" style="width:120px" />
       </div>
     </div>
     <div class="form-field" style="margin-bottom:12px">
-      <label class="form-label">Full Name</label>
+      <label class="form-label" for="editName">Full Name</label>
       <input class="form-input" type="text" id="editName" autocomplete="off" />
     </div>
     <div class="form-field" style="margin-bottom:12px">
-      <label class="form-label">Position</label>
+      <label class="form-label" for="editPosition">Position</label>
       <input class="form-input" type="text" id="editPosition" autocomplete="off" />
     </div>
     <div class="form-field" id="editDivisionField" style="display:none;margin-bottom:12px">
-      <label class="form-label">Division</label>
+      <label class="form-label" for="editDivision">Division</label>
       <input class="form-input" type="text" id="editDivision" autocomplete="off" />
     </div>
     <div class="form-field" id="editDeptField" style="margin-bottom:12px">
-      <label class="form-label">Department</label>
+      <label class="form-label" for="editDept">Department</label>
       <input class="form-input" type="text" id="editDept" autocomplete="off" />
     </div>
     <div class="form-field" id="editBirthdayField" style="display:none;margin-bottom:12px">
-      <label class="form-label">Birthday</label>
+      <label class="form-label" for="editBirthday">Birthday</label>
       <div style="display:flex;align-items:center;gap:10px">
         <input class="form-input" type="text" id="editBirthday" placeholder="May 01" autocomplete="off" style="flex:0 0 auto;width:180px" />
         <div class="photo-match-hint" id="editBirthdaySpellingHint" style="display:none;flex-shrink:0;white-space:nowrap;margin-top:0"></div>
@@ -1024,10 +1032,10 @@
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" id="lightboxClose">✕ Close</button>
-  <button class="lightbox-nav lightbox-prev" id="lightboxPrev">&#8249;</button>
+  <button class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="Previous poster">&#8249;</button>
   <img id="lightboxImg" src="" alt="" />
   <div class="lightbox-name" id="lightboxName"></div>
-  <button class="lightbox-nav lightbox-next" id="lightboxNext">&#8250;</button>
+  <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="Next poster">&#8250;</button>
 </div>
 
 <script>
@@ -1045,18 +1053,26 @@
 
   // Template selector
   document.querySelectorAll('.template-option:not(.disabled)').forEach(opt => {
-    opt.addEventListener('click', () => {
+    const selectOpt = () => {
       const cls = Array.from(opt.classList).find(c => c.startsWith('tpl-'));
       const newTemplate = cls ? cls.replace('tpl-', '') : null;
       if (newTemplate === selectedTemplate) return;
-      document.querySelectorAll('.template-option').forEach(o => o.classList.remove('active'));
+      document.querySelectorAll('.template-option').forEach(o => {
+        o.classList.remove('active');
+        o.setAttribute('aria-pressed', 'false');
+      });
       opt.classList.add('active');
+      opt.setAttribute('aria-pressed', 'true');
       const wasNull = selectedTemplate === null;
       selectedTemplate = newTemplate;
       if (!wasNull) clearAllFields();
       else setError(''); // clear any lingering errors on first selection
       document.getElementById('employeesCard').classList.remove('locked');
       onTemplateChange();
+    };
+    opt.addEventListener('click', selectOpt);
+    opt.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectOpt(); }
     });
   });
 
@@ -2031,7 +2047,14 @@
           <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
           <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${index}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>
         </div>`;
-      item.querySelector('img').addEventListener('click', () => openLightbox(index));
+      const galleryImg = item.querySelector('img');
+      galleryImg.setAttribute('tabindex', '0');
+      galleryImg.setAttribute('role', 'button');
+      galleryImg.setAttribute('aria-label', `View poster for ${esc(name)}`);
+      galleryImg.addEventListener('click', () => openLightbox(index));
+      galleryImg.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(index); }
+      });
       item.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(index, emp); });
       gallery.appendChild(item);
     });
@@ -2042,6 +2065,7 @@
   // Lightbox
   let lightboxIndex = -1;
   let lightboxEmployees = [];
+  let lightboxTriggerEl = null;
 
   document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
   document.getElementById('lightbox').addEventListener('click', e => {
@@ -2054,16 +2078,30 @@
     if (e.key === 'ArrowLeft') navigateLightbox(-1);
     else if (e.key === 'ArrowRight') navigateLightbox(1);
     else if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'Tab') {
+      const focusable = Array.from(document.querySelectorAll('#lightbox button')).filter(b => !b.disabled);
+      if (!focusable.length) { e.preventDefault(); return; }
+      const idx = focusable.indexOf(document.activeElement);
+      e.preventDefault();
+      if (e.shiftKey) {
+        focusable[(idx - 1 + focusable.length) % focusable.length].focus();
+      } else {
+        focusable[(idx + 1) % focusable.length].focus();
+      }
+    }
   });
 
   function openLightbox(index) {
+    lightboxTriggerEl = document.activeElement;
     lightboxIndex = index;
     const emp = lightboxEmployees[index];
     document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${index}?t=${Date.now()}`;
+    document.getElementById('lightboxImg').alt = emp.fullName;
     document.getElementById('lightboxName').textContent = emp.fullName;
     document.getElementById('lightboxPrev').disabled = index === 0;
     document.getElementById('lightboxNext').disabled = index === lightboxEmployees.length - 1;
     document.getElementById('lightbox').classList.add('open');
+    document.getElementById('lightboxClose').focus();
   }
 
   function navigateLightbox(dir) {
@@ -2074,6 +2112,7 @@
   function closeLightbox() {
     document.getElementById('lightbox').classList.remove('open');
     document.getElementById('lightboxImg').src = '';
+    if (lightboxTriggerEl) { lightboxTriggerEl.focus(); lightboxTriggerEl = null; }
   }
 
   // Download

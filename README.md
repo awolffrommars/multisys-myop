@@ -53,6 +53,8 @@ npm start
 
 Then open `http://localhost:3000` in your browser.
 
+> **Templates not included.** The poster background images (`templates/*.png`) are not distributed with this repository. Message **King Garrett Goting** on Teams or email **kfgoting@multisyscorp.com** to get the template files, then place them in the `templates/` folder before starting the server.
+
 ### Getting updates
 
 When a new version is pushed to GitHub, pull the latest changes and restart:
@@ -143,9 +145,9 @@ Photos are matched by normalizing the employee name and the photo filename (lowe
 │   ├── poster.html            # New Employee poster (1920×1081)
 │   ├── poster-birthday.html   # Birthday poster (1920×1081)
 │   ├── poster-anniversary.html # Work Anniversary poster (1920×1081)
-│   ├── New Employee Poster_Template.png
-│   ├── Birthday Poster_Template.png
-│   └── Work Anniversary_Template.png
+│   ├── New Employee Poster_Template.png  # not in repo — contact kfgoting@multisyscorp.com
+│   ├── Birthday Poster_Template.png      # not in repo — contact kfgoting@multisyscorp.com
+│   └── Work Anniversary_Template.png     # not in repo — contact kfgoting@multisyscorp.com
 └── public/
     └── index.html             # Web UI
 ```

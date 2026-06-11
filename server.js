@@ -70,6 +70,8 @@ if (AUTH_ENABLED) {
   }, (accessToken, refreshToken, profile, done) => {
     const email = profile.emails?.[0]?.value;
     if (!email) return done(null, false, { message: 'no-email' });
+    if (ALLOWED_DOMAIN && !email.endsWith(`@${ALLOWED_DOMAIN}`))
+      return done(null, false, { message: 'wrong-domain' });
     return done(null, { email, name: profile.displayName });
   }));
 
@@ -105,10 +107,11 @@ if (AUTH_ENABLED) {
     async (req, res) => {
       const { email, name } = req.user;
       if (WHITELIST.has(email)) return res.redirect('/');
-      const existing = db ? await db.getUser(email) : null;
+      if (!db) { req.logout(() => {}); return res.redirect('/login'); }
+      const existing = await db.getUser(email);
       if (existing?.status === 'approved') return res.redirect('/');
       if (existing?.status === 'denied') { req.logout(() => {}); return res.redirect('/denied'); }
-      if (db) await db.upsertPending(email, name);
+      await db.upsertPending(email, name);
       res.redirect('/waiting');
     }
   );
@@ -182,6 +185,11 @@ if (AUTH_ENABLED) {
     res.sendFile(path.join(__dirname, 'public', 'index.html')));
 }
 
+// Block direct static access to admin.html — the /admin route has requireAdmin
+if (AUTH_ENABLED) {
+  app.use('/admin.html', (req, res) => res.status(403).send('Forbidden'));
+}
+
 app.use(express.static('public'));
 
 // Load template PNGs at startup
@@ -206,10 +214,20 @@ function loadTemplates() {
 
 loadTemplates();
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 501 }, // 20 MB per file, 500 photos + 1 CSV
+});
 
-// In-memory job store
+// In-memory job store with TTL eviction (2 hours)
 const jobs = new Map();
+const JOB_TTL_MS = 2 * 60 * 60 * 1000;
+setInterval(() => {
+  const cutoff = Date.now() - JOB_TTL_MS;
+  for (const [id, job] of jobs) {
+    if ((job.createdAt || 0) < cutoff) jobs.delete(id);
+  }
+}, 10 * 60 * 1000).unref();
 
 // Reload templates from disk without restarting
 app.post('/reload-template', (req, res) => {
@@ -267,7 +285,7 @@ app.post('/prepare', upload.fields([
     }));
 
     const jobId = crypto.randomUUID();
-    jobs.set(jobId, { employees, photoMap, posters: [], photos: [], status: 'ready', templateKey });
+    jobs.set(jobId, { employees, photoMap, posters: [], photos: [], status: 'ready', templateKey, createdAt: Date.now() });
 
     res.json({ jobId, employees: preview });
   } catch (err) {
@@ -282,10 +300,15 @@ app.get('/generate/:jobId', async (req, res) => {
   // Block re-runs: EventSource auto-reconnects after the stream closes, which would
   // reset job.photos and corrupt in-flight or completed regenerate calls.
   if (job.status !== 'ready') {
-    // Send a synthetic complete so a reconnected client knows it's done
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.write(`data: ${JSON.stringify({ type: 'complete', count: job.posters.length })}\n\n`);
+    if (job.status === 'done') {
+      // Generation complete — send the real count so a reconnected client gets a consistent gallery
+      res.write(`data: ${JSON.stringify({ type: 'complete', count: job.posters.length })}\n\n`);
+    } else if (job.status === 'error') {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'Generation failed.' })}\n\n`);
+    }
+    // 'generating': send nothing; EventSource will retry in ~3s and check again
     res.end();
     return;
   }

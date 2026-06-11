@@ -30,7 +30,7 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 
 **In-memory job store:** `jobs` Map keyed by UUID. Each job holds `{ employees, photoMap, posters[], photos[], status, templateKey }`. `photos[]` stores `{base64, format}` per successfully rendered poster (1:1 index with `posters[]`) so `/regenerate` can re-use the original photo without re-uploading. Puppeteer browser singleton lives for one batch (`closeBrowser()` in the `finally` block).
 
-**Parallel rendering:** `CONCURRENCY = 3` in `server.js`. The generate loop slices employees into batches of 3 and runs `Promise.all` per batch. Results are pushed in original order after `Promise.all` resolves to keep `posters[]` / `photos[]` indices aligned.
+**Parallel rendering:** `CONCURRENCY = 2` in `server.js`. The generate loop slices employees into batches of 2 and runs `Promise.all` per batch. Results are pushed in original order after `Promise.all` resolves to keep `posters[]` / `photos[]` indices aligned.
 
 **Template loading:** All three template PNGs are loaded at startup into `templates` map keyed by `'new-employee'`, `'birthday'`, and `'anniversary'`. `/prepare` receives `template` and `inputMode` fields from the client. Missing PNGs log a warning but do not crash.
 
@@ -214,11 +214,12 @@ Page layout: `.main` max-width is `900px`. `.page` uses `justify-content: flex-s
 **Auth is optional** — skipped entirely when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` env vars are absent (local dev without `.env` works fine).
 
 **Login flow:**
-- Google OAuth restricted to `@multisyscorp.com` accounts (enforced in GoogleStrategy callback)
+- Google OAuth restricted to `@multisyscorp.com` accounts — `ALLOWED_DOMAIN` is checked in the GoogleStrategy callback; any non-matching email is rejected before reaching the DB
 - **Whitelist** (full immediate access): `kfgoting`, `jhbanag`, `espingol`, `mtcabugnason` — all `@multisyscorp.com`
 - Non-whitelisted `@multisyscorp.com` users → inserted as `pending` in DB → shown `/waiting` page (polls `/auth/status` every 5s → auto-redirects when approved)
-- Admin is emailed on new request; user is emailed when approved (requires `GMAIL_APP_PASSWORD` env var)
-- Denied users → `/denied` page
+- If DB is unavailable and user is not whitelisted → redirected back to `/login` (not stuck on `/waiting` forever)
+- Denied users → `/denied` page (also polls every 5s → auto-redirects to `/` if admin re-approves them)
+- No email notifications — approvals/denials are managed entirely through the admin dashboard
 
 **Middleware:**
 - `requireAccess` — blocks unless whitelisted OR DB status=`approved`; updates `last_seen` on each pass
@@ -245,11 +246,12 @@ GET /logout
 GET /me                  — returns { email, name } or {}
 ```
 
-**Database:** `services/db.js` — SQLite via `better-sqlite3`. File at `data/myop.db` (gitignored). Two tables:
+**Database:** `services/db.js` — Turso hosted SQLite via `@libsql/client` (async API). Persists across HuggingFace deploys. Falls back to local file (`data/myop.db`) when `TURSO_URL` is not set (local dev). Three tables:
 - `users` — `email PK`, `name`, `status` (pending/approved/denied), `requested_at`, `approved_at`, `last_seen`
-- `history` — `id`, `user_email`, `template`, `employee_count`, `employee_names` (JSON), `generated_at`
+- `history` — `id`, `user_email`, `template`, `employee_count`, `employee_names` (JSON), `generated_at`, `duration_ms`
+- `render_errors` — `id`, `user_email`, `template`, `employee_name`, `error_type`, `error_message`, `occurred_at`
 
-History is logged in `/generate` after `job.status = 'done'` — only when `AUTH_ENABLED && req.user && db`.
+`db.init()` is called at startup — creates all tables if they don't exist (idempotent). All db exports are `async`. `requireAccess` middleware is `async`. History is logged in `/generate` after `job.status = 'done'` — only when `AUTH_ENABLED && req.user && db`.
 
 **Admin dashboard** (`public/admin.html`):
 - KPI cards: Total Users, Pending, Approved, Posters Generated
@@ -266,11 +268,32 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 SESSION_SECRET=...
-GMAIL_APP_PASSWORD=        # Gmail app password for notification emails
-APP_URL=http://localhost:3000  # Set to HF Space URL for production
+ALLOWED_DOMAIN=multisyscorp.com
+ADMIN_EMAIL=kfgoting@multisyscorp.com
+WHITELIST=kfgoting@multisyscorp.com,jhbanag@multisyscorp.com,espingol@multisyscorp.com,mtcabugnason@multisyscorp.com
+TURSO_URL=libsql://myop-awolffrommars.aws-ap-northeast-1.turso.io
+TURSO_AUTH_TOKEN=...       # Database-level token from Turso dashboard (not org API key)
 ```
 
-**CONCURRENCY** was reduced from 3 → 2 in `server.js` (3 sometimes hung during presentations).
+All of the above are also set as HuggingFace secrets. `TURSO_AUTH_TOKEN` must be a **database token** (generated from the specific DB page or via `turso db tokens create myop`) — org-level API keys return 401.
+
+**Deploy:**
+```bash
+./deploy.sh "your commit message"
+```
+Handles GitHub push + HuggingFace orphan branch with git-lfs for template PNGs in one command.
+
+## Security & Limits
+
+**Multer upload limits:** `/prepare` enforces `fileSize: 20 MB` and `files: 501` (500 photos + 1 CSV). Larger uploads are rejected by multer before reaching the route handler.
+
+**Job store TTL:** The in-memory `jobs` Map is evicted every 10 minutes; entries older than 2 hours are deleted. `job.createdAt` is set at `/prepare` time. The interval uses `.unref()` so it doesn't block process exit.
+
+**Static file guard:** When `AUTH_ENABLED`, `app.use('/admin.html', → 403)` is registered before `express.static` so the raw dashboard HTML cannot be fetched without going through `/admin` + `requireAdmin`.
+
+**XSS prevention in admin.html:** All user-supplied strings inserted into `innerHTML` (history table employee names, errors table employee_name) are passed through `esc()` — HTML-escapes `&`, `<`, `>`, `"`.
+
+**SSE reconnect guard:** The `/generate` re-entry guard sends a synthetic `complete` only when `job.status === 'done'`; for `error` it sends an error event; for `generating` it closes the stream empty so EventSource retries in ~3s rather than receiving a stale partial count.
 
 ## V1 Backups / Future Work
 
