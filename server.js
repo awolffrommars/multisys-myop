@@ -27,7 +27,10 @@ const WHITELIST      = new Set(
 const AUTH_ENABLED = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 let db;
-try { db = require('./services/db'); } catch (e) { console.warn('DB unavailable:', e.message); }
+try {
+  db = require('./services/db');
+  db.init().catch(e => console.error('DB init failed:', e.message));
+} catch (e) { console.warn('DB unavailable:', e.message); }
 
 // ─── Email helpers ────────────────────────────────────────────────────────
 async function sendEmail(to, subject, text) {
@@ -92,14 +95,16 @@ if (AUTH_ENABLED) {
   passport.deserializeUser((user, done) => done(null, user));
 
   // Full access: whitelisted OR approved in DB
-  const requireAccess = (req, res, next) => {
-    if (!req.isAuthenticated()) return res.redirect('/login');
-    const { email } = req.user;
-    if (WHITELIST.has(email)) { db?.updateLastSeen(email); return next(); }
-    const user = db?.getUser(email);
-    if (user?.status === 'approved') { db.updateLastSeen(email); return next(); }
-    if (user?.status === 'denied') return res.redirect('/denied');
-    return res.redirect('/waiting');
+  const requireAccess = async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) return res.redirect('/login');
+      const { email } = req.user;
+      if (WHITELIST.has(email)) { db?.updateLastSeen(email).catch(() => {}); return next(); }
+      const user = db ? await db.getUser(email) : null;
+      if (user?.status === 'approved') { db.updateLastSeen(email).catch(() => {}); return next(); }
+      if (user?.status === 'denied') return res.redirect('/denied');
+      return res.redirect('/waiting');
+    } catch (e) { next(e); }
   };
 
   const requireAdmin = (req, res, next) => {
@@ -118,20 +123,20 @@ if (AUTH_ENABLED) {
     async (req, res) => {
       const { email, name } = req.user;
       if (WHITELIST.has(email)) return res.redirect('/');
-      const existing = db?.getUser(email);
+      const existing = db ? await db.getUser(email) : null;
       if (existing?.status === 'approved') return res.redirect('/');
       if (existing?.status === 'denied') { req.logout(() => {}); return res.redirect('/denied'); }
       const isNew = !existing;
-      db?.upsertPending(email, name);
+      if (db) await db.upsertPending(email, name);
       if (isNew) sendAccessRequestEmail(email, name).catch(e => console.error('Email error:', e.message));
       res.redirect('/waiting');
     }
   );
 
-  app.get('/waiting', (req, res) => {
+  app.get('/waiting', async (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/login');
     if (WHITELIST.has(req.user.email)) return res.redirect('/');
-    const user = db?.getUser(req.user.email);
+    const user = db ? await db.getUser(req.user.email) : null;
     if (user?.status === 'approved') return res.redirect('/');
     if (user?.status === 'denied')   return res.redirect('/denied');
     res.send(waitingPage(req.user.email));
@@ -139,11 +144,11 @@ if (AUTH_ENABLED) {
 
   app.get('/denied',      (req, res) => res.send(deniedPage()));
   app.get('/logout',      (req, res) => req.logout(() => res.redirect('/login')));
-  app.get('/auth/status', (req, res) => {
+  app.get('/auth/status', async (req, res) => {
     if (!req.isAuthenticated()) return res.json({ status: 'unauthenticated' });
     const { email } = req.user;
     if (WHITELIST.has(email)) return res.json({ status: 'approved' });
-    const user = db?.getUser(email);
+    const user = db ? await db.getUser(email) : null;
     res.json({ status: user?.status || 'pending' });
   });
   app.get('/me', (req, res) => {
@@ -155,32 +160,33 @@ if (AUTH_ENABLED) {
   app.get('/admin', requireAdmin, (req, res) =>
     res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-  app.get('/admin/data', requireAdmin, (req, res) => {
+  app.get('/admin/data', requireAdmin, async (req, res) => {
     if (!db) return res.json({ pending: [], approved: [], denied: [], history: [], errors: [], stats: { byTemplate: [], byUser: [], activity: [], totalPosters: 0 } });
-    res.json({
-      pending:  db.getUsersByStatus('pending'),
-      approved: db.getUsersByStatus('approved'),
-      denied:   db.getUsersByStatus('denied'),
-      history:  db.getHistory(200),
-      errors:   db.getErrors(50),
-      stats:    db.getStats(),
-    });
+    const [pending, approved, denied, history, errors, stats] = await Promise.all([
+      db.getUsersByStatus('pending'),
+      db.getUsersByStatus('approved'),
+      db.getUsersByStatus('denied'),
+      db.getHistory(200),
+      db.getErrors(50),
+      db.getStats(),
+    ]);
+    res.json({ pending, approved, denied, history, errors, stats });
   });
 
   app.post('/admin/approve/:email', requireAdmin, async (req, res) => {
     const email = decodeURIComponent(req.params.email);
-    db?.updateStatus(email, 'approved');
+    if (db) await db.updateStatus(email, 'approved');
     sendApprovedEmail(email).catch(e => console.error('Email error:', e.message));
     res.json({ ok: true });
   });
 
-  app.post('/admin/deny/:email', requireAdmin, (req, res) => {
-    db?.updateStatus(decodeURIComponent(req.params.email), 'denied');
+  app.post('/admin/deny/:email', requireAdmin, async (req, res) => {
+    if (db) await db.updateStatus(decodeURIComponent(req.params.email), 'denied');
     res.json({ ok: true });
   });
 
-  app.post('/admin/revoke/:email', requireAdmin, (req, res) => {
-    db?.updateStatus(decodeURIComponent(req.params.email), 'denied');
+  app.post('/admin/revoke/:email', requireAdmin, async (req, res) => {
+    if (db) await db.updateStatus(decodeURIComponent(req.params.email), 'denied');
     res.json({ ok: true });
   });
 
@@ -357,7 +363,7 @@ app.get('/generate/:jobId', async (req, res) => {
         } catch (err) {
           emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
           if (AUTH_ENABLED && req.user && db) {
-            try { db.logError(req.user.email, job.templateKey, emp.fullName, classifyError(err.message), err.message); } catch {}
+            try { await db.logError(req.user.email, job.templateKey, emp.fullName, classifyError(err.message), err.message); } catch {}
           }
           return null;
         }
@@ -375,7 +381,7 @@ app.get('/generate/:jobId', async (req, res) => {
     job.status = 'done';
     if (AUTH_ENABLED && req.user && db) {
       const durationMs = Date.now() - job.startedAt;
-      try { db.logHistory(req.user.email, job.templateKey, job.posters.length, job.posters.map(p => p.name), durationMs); } catch {}
+      try { await db.logHistory(req.user.email, job.templateKey, job.posters.length, job.posters.map(p => p.name), durationMs); } catch {}
     }
 
     emit({ type: 'complete', count: job.posters.length });
@@ -384,7 +390,7 @@ app.get('/generate/:jobId', async (req, res) => {
     job.status = 'error';
     emit({ type: 'error', message: err.message });
     if (AUTH_ENABLED && req.user && db) {
-      try { db.logError(req.user.email, job.templateKey, null, 'Server error', err.message); } catch {}
+      try { await db.logError(req.user.email, job.templateKey, null, 'Server error', err.message); } catch {}
     }
     res.end();
   } finally {

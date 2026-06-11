@@ -6,9 +6,6 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     fonts-noto \
     ca-certificates \
-    python3 \
-    make \
-    g++ \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
