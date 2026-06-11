@@ -52,7 +52,7 @@ const waitingPage = (email) => _HEAD('Awaiting Approval — MYOP') +
 const deniedPage = () => _HEAD('Access Denied — MYOP') +
   `<p class="err" style="margin-bottom:20px">Your request was denied. Contact ${ADMIN_EMAIL} for help.</p>
   <a href="/logout" class="btn" style="justify-content:center;background:#1c1c1c;color:#fff;border:1px solid #333">Sign out</a>
-  </div></body></html>`;
+  </div><script>setInterval(async()=>{const r=await fetch('/auth/status').then(r=>r.json()).catch(()=>({}));if(r.status==='approved')location.href='/';},5000);</script></body></html>`;
 
 if (AUTH_ENABLED) {
   app.use(session({
