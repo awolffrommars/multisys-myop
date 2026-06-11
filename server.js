@@ -10,7 +10,6 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 require('dotenv').config();
 
-const nodemailer = require('nodemailer');
 const { parseCSV } = require('./services/csv');
 const { buildPhotoMap, findPhoto, normalizeNameKey } = require('./services/matcher');
 const { renderPoster, closeBrowser } = require('./services/poster');
@@ -31,23 +30,6 @@ try {
   db = require('./services/db');
   db.init().catch(e => console.error('DB init failed:', e.message));
 } catch (e) { console.warn('DB unavailable:', e.message); }
-
-// ─── Email helpers ────────────────────────────────────────────────────────
-async function sendEmail(to, subject, text) {
-  if (!process.env.GMAIL_APP_PASSWORD) return;
-  const t = nodemailer.createTransport({ service: 'gmail', auth: { user: ADMIN_EMAIL, pass: process.env.GMAIL_APP_PASSWORD } });
-  await t.sendMail({ from: ADMIN_EMAIL, to, subject, text });
-}
-function sendAccessRequestEmail(email, name) {
-  const url = process.env.APP_URL || 'http://localhost:3000';
-  return sendEmail(ADMIN_EMAIL, `MYOP Access Request — ${email}`,
-    `${name || email} is requesting access to Make Your Own Poster.\n\nApprove or deny at: ${url}/admin\n\nEmail: ${email}`);
-}
-function sendApprovedEmail(email) {
-  const url = process.env.APP_URL || 'http://localhost:3000';
-  return sendEmail(email, 'You have been approved — Make Your Own Poster',
-    `Your access to Make Your Own Poster has been approved.\n\nSign in here: ${url}`);
-}
 
 // ─── Page templates ───────────────────────────────────────────────────────
 const _PS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#090909;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}.box{background:#141414;border:1px solid #222;border-radius:16px;padding:40px;width:100%;max-width:360px;text-align:center}.logo{font-size:20px;font-weight:700;margin-bottom:8px}.sub{font-size:13px;color:#555;margin-bottom:32px}.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;background:#fff;color:#111;border:none;border-radius:100px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none}.btn:hover{background:#e8e8e8}.err{margin-bottom:20px;font-size:13px;color:#f87171}`;
@@ -126,9 +108,7 @@ if (AUTH_ENABLED) {
       const existing = db ? await db.getUser(email) : null;
       if (existing?.status === 'approved') return res.redirect('/');
       if (existing?.status === 'denied') { req.logout(() => {}); return res.redirect('/denied'); }
-      const isNew = !existing;
       if (db) await db.upsertPending(email, name);
-      if (isNew) sendAccessRequestEmail(email, name).catch(e => console.error('Email error:', e.message));
       res.redirect('/waiting');
     }
   );
@@ -176,7 +156,6 @@ if (AUTH_ENABLED) {
   app.post('/admin/approve/:email', requireAdmin, async (req, res) => {
     const email = decodeURIComponent(req.params.email);
     if (db) await db.updateStatus(email, 'approved');
-    sendApprovedEmail(email).catch(e => console.error('Email error:', e.message));
     res.json({ ok: true });
   });
 
