@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Work Anniversary Poster</title>
+  <title>Multisys ID Back</title>
   <style>
 /* cyrillic-ext */
 @font-face {
@@ -52,30 +52,18 @@
   </style>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       width: 1920px;
-      height: 1081px;
+      height: 3050px;
       overflow: hidden;
-      font-family: 'Montserrat', 'Helvetica Neue', 'Arial', sans-serif;
+      font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
     }
-
-    /* ─── POSITION TUNING ─────────────────────────────────────────
-       Source template: Work Anniversary_Template.png (1920×1080)
-       Canvas: 1920×1081 — 1:1, no scale factor.
-       Photo orange area measured from template PNG:
-         x: 1155–1684 (529px wide, center=1419)
-         y: 151–778 (627px tall)
-       YEARS white strip: y=778–972 (center y≈875)
-    ──────────────────────────────────────────────────────────────── */
-
-    .poster {
+    .id-card {
       width: 1920px;
-      height: 1081px;
+      height: 3050px;
       position: relative;
       overflow: hidden;
     }
-
     .template-bg {
       position: absolute;
       inset: 0;
@@ -85,158 +73,218 @@
       z-index: 0;
     }
 
-    /* Photo — covers the orange placeholder inside the polaroid */
-    .photo-overlay {
+    /* ─── POSITION TUNING ─────────────────────────────────────────
+       Canvas: 1920×3050 (portrait).
+       Content overlays the white space below the "Employee's Information"
+       header that is baked into the template PNG.
+       "Employee's Information" header ends at roughly y≈400px.
+       Content ends at roughly y≈1600px.
+       Do NOT push content below y≈1800 — that's where "Valid until",
+       the red banner, and the CEO signature begin in the template PNG.
+    ──────────────────────────────────────────────────────────────── */
+    .content-area {
       position: absolute;
-      left: 1155px;
-      top: 151px;
-      width: 529px;
-      height: 627px;
-      overflow: hidden;
+      left: 140px;
+      top: 318px;
+      width: 1690px;
       z-index: 10;
     }
 
-    .photo-overlay img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center top;
-      display: block;
-      transform: scale(1.2);
-      transform-origin: center top;
-    }
+    .phone-row { margin-top: -32px; }
+    .phone-row .info-text { margin-left: 27px; }
+    .info-row.phone-row .icon { width: 64px; height: 64px; margin-top: 20px; position: relative; left: 6px; }
 
-    /* First name — aligned to template placeholder top (y=282) */
-    .employee-firstname {
-      position: absolute;
-      left: 125px;
-      top: 277px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 95px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -1px;
-      line-height: 1.0;
-      white-space: nowrap;
-      z-index: 10;
-    }
-
-    /* Last name — aligned to template second-name placeholder top (y=406) */
-    .employee-lastname {
-      position: absolute;
-      left: 125px;
-      top: 396px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 95px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -1px;
-      line-height: 1.0;
-      white-space: nowrap;
-      z-index: 10;
-    }
-
-    /* Position — aligned to template [POSITION] placeholder (y=656) */
-    .employee-position {
-      position: absolute;
-      left: 118px;
-      top: 654px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 35px;
-      font-weight: 700;
-      color: #fff;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      line-height: 1.2;
-      z-index: 10;
-    }
-
-    /* Division — aligned to template [Division] placeholder (y=735) */
-    .employee-division {
-      position: absolute;
-      left: 118px;
-      top: 733px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
-      font-weight: 400;
-      color: #fff;
-      line-height: 1.2;
-      z-index: 10;
-    }
-
-    /* Department — aligned to template [Department] placeholder (y=815) */
-    .employee-department {
-      position: absolute;
-      left: 118px;
-      top: 813px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
-      font-weight: 400;
-      color: #fff;
-      line-height: 1.2;
-      z-index: 10;
-    }
-
-    /* "WORK ANNIVERSARY" — vertical text reading bottom-to-top, in the right white border */
-    .work-anniversary-label {
-      position: absolute;
-      left: 1626px;
-      top: 151px;
-      width: 80px;
-      height: 627px;
+    /* Info rows (address, phone) */
+    .info-row {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 15;
+      align-items: flex-start;
+      gap: 28px;
+      margin-bottom: 64px;
+    }
+    .info-row .icon {
+      width: 75px;
+      height: 75px;
+      flex-shrink: 0;
+      margin-top: 9px;
+    }
+    .info-text {
+      font-size: 62px;
+      font-weight: 600;
+      color: #181818;
+      line-height: 1.3;
+      margin-top: 10px;
+      margin-left: 16px;
     }
 
-    .work-anniversary-label span {
-      display: block;
-      transform: rotate(-90deg);
-      white-space: nowrap;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 52px;
+    /* 2×2 ID numbers grid */
+    .id-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 36px 100px;
+      margin-top: 97px;
+      margin-bottom: 147px;
+      margin-left: 7px;
+    }
+    .id-field {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: nowrap;
+    }
+    .id-field:nth-child(2) { padding-left: 106px; }
+    .id-field:nth-child(3) { margin-top: -8px; }
+    .id-field:nth-child(3) .id-value { margin-left: 25px; }
+    .id-field:nth-child(4) { padding-left: 106px; margin-top: -8px; }
+    .id-field:nth-child(4) .id-value { margin-left: 25px; }
+    .id-label {
+      font-size: 63px;
       font-weight: 700;
-      color: #f4f1f1;
-      text-transform: uppercase;
+      color: #cc3333;
+      white-space: nowrap;
+    }
+    .id-value {
+      font-size: 63px;
+      font-weight: 600;
+      color: #181818;
+      white-space: nowrap;
+      margin-left: 15px;
     }
 
-    /* Years — centered at x=1419, within white strip (y=778–972) */
-    .years-overlay {
-      position: absolute;
-      left: 1419px;
-      top: 875px;
-      transform: translate(-50%, -50%);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 89px;
-      font-weight: 800;
-      color: #eb6004;
-      letter-spacing: 2px;
-      white-space: nowrap;
-      z-index: 10;
+    /* Emergency contact gray box */
+    .emergency-box {
+      background: #d8d8d8;
+      border-radius: 20px;
+      padding: 105px 80px 135px 63px;
+      margin-left: -63px;
+      margin-top: -25px;
+      width: 1766px;
+    }
+    .emergency-title {
+      font-size: 97px;
+      font-weight: 700;
+      color: #181818;
+      margin-bottom: 52px;
+      margin-top: -13px;
+      margin-left: 7px;
+    }
+    .emergency-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 28px;
+      margin-bottom: 40px;
+    }
+    .emergency-row:last-child {
+      margin-bottom: 0;
+    }
+    .emergency-row .icon {
+      width: 62px;
+      height: 62px;
+      flex: 0 0 75px;
+      object-fit: contain;
+      margin-top: 8px;
+    }
+    .emergency-row:nth-child(3) .icon { width: 75px; height: 75px; }
+    .emergency-row:nth-child(4) .icon { width: 64px; height: 64px; }
+    .emergency-text {
+      font-size: 58px;
+      font-weight: 600;
+      color: #181818;
+      line-height: 1.3;
+      margin-left: 20px;
     }
   </style>
 </head>
 <body>
-  <div class="poster">
-
+  <div class="id-card">
     <img class="template-bg" src="{{TEMPLATE_BASE64}}" alt="" />
+    <div class="content-area">
 
-    <div class="photo-overlay">
-      <img src="{{PHOTO_BASE64}}" alt="" />
+      <!-- Address -->
+      <div class="info-row">
+        <img class="icon" src="{{HOME_ICON_BASE64}}" alt="" />
+        <div class="info-text">{{ADDRESS}}</div>
+      </div>
+
+      <!-- Phone -->
+      <div class="info-row phone-row">
+        <img class="icon" src="{{CONTACT_ICON_BASE64}}" alt="" />
+        <div class="info-text">{{PHONE_NUMBER}}</div>
+      </div>
+
+      <!-- ID numbers -->
+      <div class="id-grid">
+        <div class="id-field">
+          <span class="id-label">PhilHealth:</span>
+          <span class="id-value">{{PHILHEALTH}}</span>
+        </div>
+        <div class="id-field">
+          <span class="id-label">SSS:</span>
+          <span class="id-value">{{SSS}}</span>
+        </div>
+        <div class="id-field">
+          <span class="id-label">HDMF:</span>
+          <span class="id-value">{{HDMF}}</span>
+        </div>
+        <div class="id-field">
+          <span class="id-label">TIN:</span>
+          <span class="id-value">{{TIN}}</span>
+        </div>
+      </div>
+
+      <!-- Emergency contact -->
+      <div class="emergency-box">
+        <div class="emergency-title">Emergency Contact</div>
+        <div class="emergency-row">
+          <img class="icon" src="{{PERSON_ICON_BASE64}}" alt="" />
+          <div class="emergency-text">{{CONTACT_NAME}}</div>
+        </div>
+        <div class="emergency-row">
+          <img class="icon" src="{{HOME_ICON_BASE64}}" alt="" />
+          <div class="emergency-text">{{CONTACT_ADDRESS}}</div>
+        </div>
+        <div class="emergency-row">
+          <img class="icon" src="{{CONTACT_ICON_BASE64}}" alt="" />
+          <div class="emergency-text">{{CONTACT_NUMBER}}</div>
+        </div>
+      </div>
+
     </div>
-
-    <div class="employee-firstname">{{FIRST_NAME}}</div>
-    <div class="employee-lastname">{{LAST_NAME}}</div>
-
-    <div class="employee-position">{{POSITION}}</div>
-    <div class="employee-division">{{DIVISION}}</div>
-    <div class="employee-department">{{DEPARTMENT}}</div>
-
-    <div class="work-anniversary-label"><span>WORK ANNIVERSARY</span></div>
-
-    <div class="years-overlay">{{ANNIVERSARY_YEARS}} YEARS</div>
-
   </div>
+  <script>
+    (function() {
+      var addrText = document.querySelector('.info-row:first-child .info-text');
+      var idGrid = document.querySelector('.id-grid');
+      var emergencyAddrRow = document.querySelector('.emergency-row:nth-child(3)');
+      var empAddrTwoLines = false;
+      var emergAddrTwoLines = false;
+
+      if (addrText) {
+        var lh = parseFloat(getComputedStyle(addrText).lineHeight);
+        empAddrTwoLines = addrText.offsetHeight > lh * 1.5;
+      }
+      if (emergencyAddrRow) {
+        var emergencyAddrText = emergencyAddrRow.querySelector('.emergency-text');
+        if (emergencyAddrText) {
+          var eLH = parseFloat(getComputedStyle(emergencyAddrText).lineHeight);
+          emergAddrTwoLines = emergencyAddrText.offsetHeight > eLH * 1.5;
+          if (emergAddrTwoLines) {
+            emergencyAddrRow.style.marginBottom = '10px';
+          }
+        }
+      }
+      if (idGrid) {
+        if (empAddrTwoLines && !emergAddrTwoLines) {
+          idGrid.style.marginTop = '9px';
+          idGrid.style.marginBottom = '98px';
+        } else if (empAddrTwoLines && emergAddrTwoLines) {
+          idGrid.style.marginTop = '-12px';
+          idGrid.style.marginBottom = '77px';
+        } else if (emergAddrTwoLines) {
+          idGrid.style.marginTop = '80px';
+          idGrid.style.marginBottom = '130px';
+        }
+      }
+    })();
+  </script>
 </body>
 </html>

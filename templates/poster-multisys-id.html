@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Work Anniversary Poster</title>
+  <title>Multisys ID Front</title>
   <style>
 /* cyrillic-ext */
 @font-face {
@@ -52,30 +52,18 @@
   </style>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       width: 1920px;
-      height: 1081px;
+      height: 3050px;
       overflow: hidden;
       font-family: 'Montserrat', 'Helvetica Neue', 'Arial', sans-serif;
     }
-
-    /* ─── POSITION TUNING ─────────────────────────────────────────
-       Source template: Work Anniversary_Template.png (1920×1080)
-       Canvas: 1920×1081 — 1:1, no scale factor.
-       Photo orange area measured from template PNG:
-         x: 1155–1684 (529px wide, center=1419)
-         y: 151–778 (627px tall)
-       YEARS white strip: y=778–972 (center y≈875)
-    ──────────────────────────────────────────────────────────────── */
-
-    .poster {
+    .id-card {
       width: 1920px;
-      height: 1081px;
+      height: 3050px;
       position: relative;
       overflow: hidden;
     }
-
     .template-bg {
       position: absolute;
       inset: 0;
@@ -85,158 +73,141 @@
       z-index: 0;
     }
 
-    /* Photo — covers the orange placeholder inside the polaroid */
-    .photo-overlay {
+    /* ─── POSITION TUNING ─────────────────────────────────────────
+       Canvas: 1920×3050 (portrait). Blue box is the photo area.
+       Red banner holds First Name / Last Name / Position.
+       White strip at the bottom holds the employee number.
+    ──────────────────────────────────────────────────────────────── */
+    :root {
+      --photo-left:   290px;
+      --photo-top:    445px;
+      --photo-width:  1340px;
+      --photo-height: 1489px;
+
+      --banner-top:   1920px;
+      --banner-height: 655px;
+
+      --sig-left:     414px;
+      --sig-top:      2615px;
+      --sig-width:    1092px;
+      --sig-height:   290px;
+
+      --empnum-top:   2816px;
+      --empnum-height: 180px;
+    }
+
+    /* Photo fills the blue box */
+    .photo-area {
       position: absolute;
-      left: 1155px;
-      top: 151px;
-      width: 529px;
-      height: 627px;
+      left: var(--photo-left);
+      top: var(--photo-top);
+      width: var(--photo-width);
+      height: var(--photo-height);
       overflow: hidden;
       z-index: 10;
     }
-
-    .photo-overlay img {
+    .photo-area img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       object-position: center top;
-      display: block;
-      transform: scale(1.2);
-      transform-origin: center top;
     }
 
-    /* First name — aligned to template placeholder top (y=282) */
-    .employee-firstname {
+    /* Red banner: flex column centered vertically */
+    .text-block {
       position: absolute;
-      left: 125px;
-      top: 277px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 95px;
+      left: 0;
+      top: var(--banner-top);
+      width: 1920px;
+      height: var(--banner-height);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .first-name {
+      font-size: 160px;
       font-weight: 700;
       color: #fff;
-      letter-spacing: -1px;
-      line-height: 1.0;
       white-space: nowrap;
-      z-index: 10;
+      line-height: 1.05;
+      position: relative;
+      top: -14px;
     }
 
-    /* Last name — aligned to template second-name placeholder top (y=406) */
-    .employee-lastname {
-      position: absolute;
-      left: 125px;
-      top: 396px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 95px;
+    .last-name {
+      font-size: 160px;
       font-weight: 700;
       color: #fff;
-      letter-spacing: -1px;
-      line-height: 1.0;
       white-space: nowrap;
-      z-index: 10;
+      line-height: 1.05;
     }
 
-    /* Position — aligned to template [POSITION] placeholder (y=656) */
-    .employee-position {
-      position: absolute;
-      left: 118px;
-      top: 654px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 35px;
-      font-weight: 700;
+    .position-text {
+      font-size: 63px;
+      font-weight: 500;
       color: #fff;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      line-height: 1.2;
-      z-index: 10;
+      margin-top: 16px;
+      white-space: nowrap;
+      position: relative;
+      top: 26px;
     }
 
-    /* Division — aligned to template [Division] placeholder (y=735) */
-    .employee-division {
+    /* Signature in the green rectangle */
+    #sigOverlay {
       position: absolute;
-      left: 118px;
-      top: 733px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
-      font-weight: 400;
-      color: #fff;
-      line-height: 1.2;
-      z-index: 10;
-    }
-
-    /* Department — aligned to template [Department] placeholder (y=815) */
-    .employee-department {
-      position: absolute;
-      left: 118px;
-      top: 813px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
-      font-weight: 400;
-      color: #fff;
-      line-height: 1.2;
-      z-index: 10;
-    }
-
-    /* "WORK ANNIVERSARY" — vertical text reading bottom-to-top, in the right white border */
-    .work-anniversary-label {
-      position: absolute;
-      left: 1626px;
-      top: 151px;
-      width: 80px;
-      height: 627px;
+      left: var(--sig-left);
+      top: var(--sig-top);
+      width: var(--sig-width);
+      height: var(--sig-height);
+      overflow: hidden;
+      z-index: 20;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 15;
+    }
+    #sigOverlay img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
 
-    .work-anniversary-label span {
-      display: block;
-      transform: rotate(-90deg);
-      white-space: nowrap;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 52px;
-      font-weight: 700;
-      color: #f4f1f1;
-      text-transform: uppercase;
-    }
-
-    /* Years — centered at x=1419, within white strip (y=778–972) */
-    .years-overlay {
+    /* Employee number in the white strip */
+    .emp-num {
       position: absolute;
-      left: 1419px;
-      top: 875px;
-      transform: translate(-50%, -50%);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 89px;
-      font-weight: 800;
-      color: #eb6004;
-      letter-spacing: 2px;
-      white-space: nowrap;
+      left: 0;
+      top: var(--empnum-top);
+      width: 1920px;
+      height: var(--empnum-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       z-index: 10;
+    }
+
+    .emp-num-text {
+      font-size: 110px;
+      font-weight: 700;
+      color: #000;
+      letter-spacing: 6px;
     }
   </style>
 </head>
 <body>
-  <div class="poster">
-
+  <div class="id-card">
     <img class="template-bg" src="{{TEMPLATE_BASE64}}" alt="" />
-
-    <div class="photo-overlay">
-      <img src="{{PHOTO_BASE64}}" alt="" />
+    <div class="photo-area"><img src="{{PHOTO_BASE64}}" alt="" /></div>
+    <div class="text-block">
+      <div class="first-name">{{FIRST_NAME}}</div>
+      <div class="last-name">{{LAST_NAME}}</div>
+      <div class="position-text">{{POSITION}}</div>
     </div>
-
-    <div class="employee-firstname">{{FIRST_NAME}}</div>
-    <div class="employee-lastname">{{LAST_NAME}}</div>
-
-    <div class="employee-position">{{POSITION}}</div>
-    <div class="employee-division">{{DIVISION}}</div>
-    <div class="employee-department">{{DEPARTMENT}}</div>
-
-    <div class="work-anniversary-label"><span>WORK ANNIVERSARY</span></div>
-
-    <div class="years-overlay">{{ANNIVERSARY_YEARS}} YEARS</div>
-
+    <div id="sigOverlay"><img src="{{SIGNATURE_BASE64}}" alt="" /></div>
+    <div class="emp-num">
+      <div class="emp-num-text">{{EMPLOYEE_NUMBER}}</div>
+    </div>
   </div>
 </body>
 </html>

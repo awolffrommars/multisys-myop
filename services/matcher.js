@@ -4,6 +4,7 @@ const SUPPORTED_EXTS = new Set(['.png']);
 // Normalize a name into a sorted set of tokens so "Kay Santos" and "Santos, Kay" both produce the same key
 function normalizeNameKey(str) {
   return str
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics (ñ→n, é→e, etc.)
     .toLowerCase()
     .replace(/[,]+/g, ' ')       // remove commas (handles "Santos, Kay")
     .replace(/[\s_\-\.]+/g, ' ') // collapse separators

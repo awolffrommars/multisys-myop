@@ -1,6 +1,6 @@
 const { parse } = require('csv-parse/sync');
 
-const HEADER_KEYWORDS = ['name', 'full name', 'fullname', 'position', 'title', 'department', 'dept', 'division', 'birthday', 'date', 'years'];
+const HEADER_KEYWORDS = ['name', 'full name', 'fullname', 'position', 'title', 'department', 'dept', 'division', 'birthday', 'date', 'years', 'email', 'mobile', 'phone', 'employee', 'address', 'sss', 'tin', 'hdmf', 'pag-ibig', 'pagibig'];
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -99,6 +99,34 @@ function parseCSV(buffer, templateKey = 'new-employee') {
         position: row[3] || '',
         division: row[4] || '',
         department: row[5] || '',
+      };
+    }
+    if (templateKey === 'calling-card') {
+      // Calling Card CSV: Full Name, Position, Email Address, Mobile Number
+      return {
+        rowNumber: start + i + 1,
+        fullName: row[0] || '',
+        position: row[1] || '',
+        email: row[2] || '',
+        mobile: row[3] || '',
+      };
+    }
+    if (templateKey === 'multisys-id') {
+      // Multisys ID CSV: Employee Number, Full Name, Position, Address, Phone Number, SSS Number, TIN, Pag-ibig, PhilHealth Number, Emergency Contact Name, Emergency Contact Address, Emergency Contact Number
+      return {
+        rowNumber: start + i + 1,
+        employeeNumber: row[0] || '',
+        fullName: row[1] || '',
+        position: row[2] || '',
+        address: row[3] || '',
+        phoneNumber: row[4] || '',
+        sss: row[5] || '',
+        tin: row[6] || '',
+        hdmf: row[7] || '',
+        philhealth: row[8] || '',
+        contactName: row[9] || '',
+        contactAddress: row[10] || '',
+        contactNumber: row[11] || '',
       };
     }
     // New Employee CSV: Full Name, Position, Department

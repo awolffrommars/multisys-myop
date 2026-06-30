@@ -9,3 +9,5 @@ templates/*.png
 .agents/
 .claude/
 skills-lock.json
+src/
+login-paper*.png

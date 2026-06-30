@@ -17,7 +17,7 @@
     }
 
     body {
-      background: #090909;
+      background-color: #090909;
       color: #fff;
       font-family: 'Inter', -apple-system, sans-serif;
       font-feature-settings: 'cv01','cv05','cv09','cv11','ss03','ss07';
@@ -32,6 +32,7 @@
       justify-content: flex-start;
       padding: 60px 20px;
       position: relative;
+      z-index: 1;
       overflow: hidden;
     }
 
@@ -97,7 +98,7 @@
       position: relative;
     }
 
-    .upload-zone:hover, .upload-zone.drag-over {
+    .upload-zone:hover, .upload-zone.drag-over, .upload-zone:focus-visible {
       border-color: #555;
       background: #1c1c1c;
     }
@@ -120,7 +121,7 @@
 
     .upload-zone .zone-sub {
       font-size: 13px;
-      color: #666;
+      color: #888;
     }
 
     .upload-zone.has-file { border-color: #22c55e44; background: #22c55e08; }
@@ -128,24 +129,26 @@
 
     .zone-remove-btn {
       position: absolute;
-      top: 4px; right: 4px;
-      width: 36px; height: 36px;
-      border-radius: 50%;
+      top: 50%; right: 8px;
+      transform: translateY(-50%);
       border: none;
-      background: #2a2a2a;
-      color: #666;
-      font-size: 15px;
+      background: none;
+      color: #3a3a3a;
+      font-size: 20px;
       line-height: 1;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       z-index: 10;
-      transition: background 0.15s, color 0.15s;
+      padding: 0;
+      min-width: 44px;
+      min-height: 44px;
+      transition: color 0.15s;
     }
-    .zone-remove-btn:hover { background: #ff5577; color: #fff; }
+    .zone-remove-btn:hover, .zone-remove-btn:focus-visible { color: #ff5577; outline: none; }
 
     .hint {
       font-size: 13px;
-      color: #555;
+      color: #888;
       margin-top: 14px;
       line-height: 1.5;
     }
@@ -181,10 +184,14 @@
       transform: translateY(-1px);
       box-shadow: 0 8px 24px rgba(255,255,255,0.15);
     }
+    .btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.98);
+      transition-duration: 60ms;
+    }
 
     .btn-secondary { background: #1c1c1c; color: #fff; border: 1px solid #262626; }
     .btn-secondary:hover:not(:disabled) { background: #262626; }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
     .btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
     .btn-row .btn { width: 100%; }
@@ -213,7 +220,7 @@
     /* Preview table */
     .preview-table { width: 100%; border-collapse: collapse; }
     .preview-table th {
-      font-size: 12px; font-weight: 500; color: #555;
+      font-size: 12px; font-weight: 500; color: #888;
       text-align: left; padding: 0 8px 10px 0;
       border-bottom: 1px solid #1a1a1a;
     }
@@ -250,15 +257,16 @@
       border: 1px solid #333;
       border-radius: 100px;
       color: #fff;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
       font-family: inherit;
-      padding: 4px 10px;
+      padding: 6px 12px;
+      min-height: 32px;
       cursor: pointer;
       transition: background 0.15s;
       white-space: nowrap;
     }
-    .upload-inline:hover { background: #262626; }
+    .upload-inline:hover, .upload-inline:focus-visible { background: #262626; outline: none; }
     .upload-inline input[type="file"] { display: none; }
     .upload-inline.uploading { pointer-events: none; opacity: 0.7; cursor: default; }
     .upload-inline-spinner {
@@ -299,8 +307,8 @@
 
     .progress-info { flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; }
     .progress-name { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .progress-detail { font-size: 12px; color: #555; flex-shrink: 0; }
-    .progress-status { font-size: 12px; color: #555; flex-shrink: 0; }
+    .progress-detail { font-size: 12px; color: #888; flex-shrink: 0; }
+    .progress-status { font-size: 12px; color: #888; flex-shrink: 0; }
     .progress-row.error .progress-name { color: #ff5577; }
 
     /* Poster preview gallery */
@@ -331,6 +339,7 @@
       object-fit: cover;
       display: block;
     }
+    .gallery-item.portrait img { aspect-ratio: 1920 / 3050; }
 
     .gallery-footer {
       display: flex;
@@ -339,7 +348,7 @@
       gap: 8px;
     }
 
-    .gallery-item .gallery-label {
+    .gallery-label {
       flex: 1;
       font-size: 13px;
       font-weight: 500;
@@ -351,14 +360,56 @@
 
     .gallery-dl {
       flex-shrink: 0;
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 8px 14px;
+      font-size: 13px;
       text-decoration: none;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
     }
 
+    /* Paired gallery (Multisys ID + Calling Card) */
+    .gallery--id-pairs {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .gallery--cc-pairs {
+      grid-template-columns: 1fr;
+    }
+    .gallery-id-pair {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .gallery-id-pair:hover { border-color: #444; transform: translateY(-2px); }
+    .gallery-id-sides {
+      display: flex;
+      gap: 2px;
+      background: #111;
+    }
+    .gallery-id-side {
+      flex: 1;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .gallery-id-side img {
+      width: 100%;
+      aspect-ratio: 1920 / 3050;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.15s;
+    }
+    .gallery--cc-pairs .gallery-id-side img {
+      aspect-ratio: 1920 / 1152;
+    }
+    .gallery-id-side:hover img { opacity: 0.85; }
+
     /* Edit modal */
-    @keyframes fadeInBackdrop { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUpModal   { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes fadeInBackdrop  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeOutBackdrop { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes slideUpModal    { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes slideDownModal  { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(12px) scale(0.98); } }
 
     .edit-modal-overlay {
       display: none;
@@ -377,13 +428,22 @@
     .edit-modal-overlay.open .edit-modal-box {
       animation: slideUpModal 200ms ease forwards;
     }
+    .edit-modal-overlay.closing {
+      animation: fadeOutBackdrop 120ms ease-in forwards;
+      pointer-events: none;
+    }
+    .edit-modal-overlay.closing .edit-modal-box {
+      animation: slideDownModal 120ms ease-in forwards;
+    }
     .edit-modal-box {
       background: #141414;
       border: 1px solid #262626;
       border-radius: 20px;
       padding: 28px;
       width: 100%;
-      max-width: 480px;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .edit-modal-title {
       font-size: 13px;
@@ -414,6 +474,10 @@
     }
     .lightbox.open img {
       animation: slideUpModal 200ms ease forwards;
+    }
+    .lightbox.closing {
+      animation: fadeOutBackdrop 120ms ease-in forwards;
+      pointer-events: none;
     }
 
     .lightbox img {
@@ -469,7 +533,7 @@
 
     /* Error banner */
     .error-banner {
-      background: #ff55771a; border: 1px solid #ff557733;
+      background: #1c0c10; border: 1px solid #ff557744;
       border-radius: 12px; padding: 14px 18px;
       font-size: 14px; color: #ff5577;
       margin-bottom: 16px; display: none;
@@ -482,6 +546,43 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
+    .template-grid.extra-templates { grid-template-columns: repeat(2, 1fr); margin-top: 10px; }
+    @media (min-width: 600px) {
+      .template-grid.extra-templates { grid-template-columns: repeat(2, 1fr); }
+    }
+    #moreTemplatesBtn {
+      background: none; border: none;
+      color: #555; font-size: 11px; font-weight: 500;
+      cursor: pointer; padding: 0;
+      display: flex; align-items: center; gap: 5px;
+      letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.15s;
+      font-family: inherit; margin-top: 20px;
+    }
+    #moreTemplatesBtn:hover { color: #999; }
+    #moreTemplatesArrow { display: inline-block; font-size: 9px; line-height: 1; position: relative; top: 0.5px; }
+    .qr-preview-wrap {
+      display: none; margin-top: 14px; padding: 14px;
+      background: #0d0d0d; border: 1px solid #222; border-radius: 12px;
+      align-items: center; gap: 16px;
+    }
+    #manualQrImg {
+      width: 100px; height: 100px; border-radius: 8px;
+      background: #fff; padding: 6px; flex-shrink: 0;
+    }
+    #manualQrPreview > div:first-child { cursor: zoom-in; }
+    #manualQrPreview > div:first-child:hover img { opacity: 0.9; }
+    .qr-preview-label {
+      font-size: 11px; font-weight: 500; color: #888;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+    }
+    .qr-preview-uri { font-size: 12px; color: #777; word-break: break-all; }
+    .id-section-header {
+      font-size: 11px; font-weight: 600; color: #888;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin: 22px 0 0; padding-bottom: 8px;
+      border-bottom: 1px solid #262626;
+    }
+    .id-section-header + .form-row { margin-top: 12px; }
 
     .template-option {
       border: 1px solid #262626;
@@ -492,12 +593,15 @@
       position: relative;
     }
 
-    .template-option:not(.disabled):hover { border-color: #444; }
+    .template-option:not(.disabled):hover,
+    .template-option:not(.disabled):focus-visible { border-color: #444; }
 
     .template-option.active { background: #1c1c1c; }
     .template-option.active.tpl-birthday      { border-color: #ffb133; background: #ffb13310; }
     .template-option.active.tpl-new-employee  { border-color: #eb6004; background: #eb600410; }
     .template-option.active.tpl-anniversary   { border-color: #e04040; background: #e0404010; }
+    .template-option.active.tpl-calling-card  { border-color: #0099ff; background: #0099ff10; }
+    .template-option.active.tpl-multisys-id      { border-color: #22c55e; background: #22c55e10; }
 
     .template-option.disabled {
       opacity: 0.35;
@@ -514,7 +618,7 @@
     .template-option-badge {
       font-size: 10px;
       font-weight: 500;
-      color: #555;
+      color: #888;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 5px;
@@ -532,7 +636,7 @@
 
     .mode-tab {
       flex: 1;
-      padding: 8px;
+      padding: 12px 8px;
       border: none;
       border-radius: 7px;
       font-family: inherit;
@@ -578,12 +682,20 @@
     .form-row.ann-layout #manualDivisionField  { grid-column: 5 / span 4;  grid-row: 2; }
     .form-row.ann-layout #manualDeptField      { grid-column: 9 / span 4;  grid-row: 2; }
 
+    /* Calling Card layout: two natural flex columns */
+    #ccLeft, #ccRight { display: contents; } /* transparent in other grid layouts */
+    .form-row.cc-layout { display: flex !important; gap: 12px; }
+    .form-row.cc-layout #ccLeft  { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+    .form-row.cc-layout #ccRight { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; align-self: stretch; }
+    .form-row.cc-layout #manualQrPreview { margin: 0; background: transparent; border: none; padding: 0; flex-direction: column; gap: 8px; align-items: center; }
+    .form-row.cc-layout #manualQrImg { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1; }
+
     .form-field { display: flex; flex-direction: column; gap: 6px; }
 
     .form-label {
       font-size: 11px;
       font-weight: 500;
-      color: #555;
+      color: #888;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -603,6 +715,13 @@
 
     .form-input:focus { border-color: #555; box-shadow: 0 0 0 3px rgba(0,153,255,0.12); }
     .form-input::placeholder { color: #3a3a3a; }
+    .form-input:-webkit-autofill,
+    .form-input:-webkit-autofill:hover,
+    .form-input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 30px #1c1c1c inset !important; -webkit-text-fill-color: #fff !important; }
+    .phone-prefix-wrapper { display:flex; align-items:center; background:#1c1c1c; border:1px solid #262626; border-radius:8px; transition:border-color 0.15s; }
+    .phone-prefix-wrapper:focus-within { border-color:#555; box-shadow:0 0 0 3px rgba(0,153,255,0.12); }
+    .phone-prefix { font-size:14px; color:#666; padding:9px 8px 9px 12px; white-space:nowrap; cursor:default; border-right:1px solid #2a2a2a; }
+    .phone-prefix-wrapper .form-input { border:none !important; background:transparent; padding-left:8px; box-shadow:none !important; }
 
     .manual-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 
@@ -618,7 +737,7 @@
 
     .manual-item-info { flex: 1; min-width: 0; }
     .manual-item-name { font-size: 14px; color: #fff; font-weight: 500; }
-    .manual-item-detail { font-size: 12px; color: #555; margin-top: 2px; }
+    .manual-item-detail { font-size: 12px; color: #888; margin-top: 2px; }
 
     .manual-item-photo { font-size: 11px; font-weight: 500; flex-shrink: 0; }
     .manual-item-photo.has { color: #22c55e; }
@@ -630,14 +749,19 @@
       color: #3a3a3a;
       cursor: pointer;
       font-size: 20px;
-      padding: 0 2px;
+      padding: 6px;
+      min-width: 32px;
+      min-height: 32px;
       line-height: 1;
       flex-shrink: 0;
       font-family: inherit;
       transition: color 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .btn-icon:hover { color: #ff5577; }
-    .btn-icon.edit:hover { color: #fff; }
+    .btn-icon:hover, .btn-icon:focus-visible { color: #ff5577; outline: none; }
+    .btn-icon.edit:hover, .btn-icon.edit:focus-visible { color: #fff; }
 
     .photo-list {
       display: flex;
@@ -687,7 +811,7 @@
 
     .details-toggle {
       font-size: 12px;
-      color: #555;
+      color: #888;
       text-decoration: underline;
       cursor: pointer;
       margin-left: 8px;
@@ -699,7 +823,7 @@
       margin: 4px 0 0 2px;
       padding-top: 4px;
       font-size: 12px;
-      color: #666;
+      color: #888;
       line-height: 1.8;
       list-style: none;
     }
@@ -707,7 +831,8 @@
     .details-list li::before { content: "• "; }
 
     #manualMode.fields-locked .form-row,
-    #manualMode.fields-locked #manualPhotoZone {
+    #manualMode.fields-locked #manualPhotoZone,
+    #manualMode.fields-locked #manualIdSection {
       opacity: 0.35;
       pointer-events: none;
     }
@@ -715,12 +840,12 @@
     .photo-match-hint { font-size: 12px; margin-top: 6px; }
     .photo-match-hint.match { color: #22c55e !important; }
     .photo-match-hint.mismatch { color: #f59e0b; }
-    .photo-match-hint.neutral { color: #555; }
+    .photo-match-hint.neutral { color: #888; }
 
     /* Download card */
     .success-card {
-      background: #22c55e0d;
-      border: 1px solid #22c55e33;
+      background: #0e1c11;
+      border: 1px solid #22c55e40;
       border-radius: 16px;
       padding: 20px 24px;
       display: flex;
@@ -735,14 +860,66 @@
 
     /* Locked card (no template selected) */
     .card.locked {
-      opacity: 0.35;
       pointer-events: none;
       user-select: none;
     }
+    .card.locked > * { opacity: 0.35; }
 
     /* Steps */
     .step { display: none; }
     .step.active { display: block; }
+
+    /* Upload button spinner */
+    .btn-spinner {
+      width: 13px; height: 13px;
+      border: 2px solid rgba(0,0,0,0.25);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    .btn-primary .btn-spinner {
+      border-color: rgba(0,0,0,0.2);
+      border-top-color: #000;
+    }
+
+    /* CSS hover for elements that used inline onmouseover/onmouseout */
+    #csvSampleLink { opacity: 0.85; transition: opacity 0.15s; }
+    #csvSampleLink:hover, #csvSampleLink:focus-visible { opacity: 1; }
+    #qrDownloadBtn:hover, #qrDownloadBtn:focus-visible,
+    #qrLightboxDownloadBtn:hover, #qrLightboxDownloadBtn:focus-visible { background: #2a2a2a !important; }
+
+    /* Horizontal scroll fade hint */
+    .form-scroll-wrap { position: relative; }
+    .form-scroll-wrap::after {
+      content: none;
+    }
+
+    /* Step indicator */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .step-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #2a2a2a; border: 1px solid #3a3a3a;
+      transition: background 0.25s, border-color 0.25s;
+      flex-shrink: 0;
+    }
+    .step-dot.active { background: #fff; border-color: #fff; }
+    .step-dot.done   { background: #22c55e; border-color: #22c55e; }
+    .step-line {
+      flex: 0 0 20px; height: 1px;
+      background: #2a2a2a; transition: background 0.25s;
+    }
+    .step-line.done { background: #22c55e; }
+    .step-label {
+      font-size: 12px; color: #888; margin-left: 6px;
+      font-weight: 500; letter-spacing: -0.12px;
+      transition: color 0.25s;
+    }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -775,6 +952,24 @@
   </style>
 </head>
 <body>
+<div id="grid-bg" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden">
+  <svg id="grid-base" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.05" aria-hidden="true">
+    <defs>
+      <pattern id="gbp" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#gbp)"/>
+  </svg>
+  <svg id="grid-hover" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.4;mask-image:radial-gradient(300px circle at -9999px -9999px,black,transparent);-webkit-mask-image:radial-gradient(300px circle at -9999px -9999px,black,transparent)" aria-hidden="true">
+    <defs>
+      <pattern id="ghp" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#ghp)"/>
+  </svg>
+</div>
 <div class="page">
   <div class="main">
 
@@ -785,30 +980,55 @@
       <p class="subtitle">Generate recurring activity announcements in bulk.</p>
     </div>
 
-    <div class="error-banner" id="errorBanner"></div>
+
+
+    <div id="devReloadWrap" style="display:none;margin-bottom:12px;text-align:right">
+      <button class="btn" id="devReloadBtn" style="background:#2a2a2a;border:1px solid #444;font-size:13px;padding:6px 14px;border-radius:8px;cursor:pointer;color:#aaa">↺ Reload Last Job</button>
+    </div>
+    <div class="step-indicator" id="stepIndicator">
+      <div class="step-dot active" id="sdot1"></div>
+      <div class="step-line" id="sline1"></div>
+      <div class="step-dot" id="sdot2"></div>
+      <div class="step-line" id="sline2"></div>
+      <div class="step-dot" id="sdot3"></div>
+      <span class="step-label" id="stepLabel">Step 1 of 3</span>
+    </div>
+
+    <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive"></div>
 
     <!-- STEP 1: Upload -->
     <div class="step active" id="step1">
       <div class="card" style="margin-bottom:16px">
         <div class="card-title">Select Template</div>
-        <div class="template-grid">
-          <div class="template-option tpl-birthday" tabindex="0" role="button" aria-pressed="false">
+        <div class="template-grid" id="mainTemplateGrid">
+          <div class="template-option tpl-birthday" tabindex="0" role="button" aria-pressed="false" aria-label="Select Birthday Poster template">
             <div class="template-option-name">Birthday Poster</div>
           </div>
-          <div class="template-option tpl-new-employee" tabindex="0" role="button" aria-pressed="false">
+          <div class="template-option tpl-new-employee" tabindex="0" role="button" aria-pressed="false" aria-label="Select New Employee Poster template">
             <div class="template-option-name">New Employee Poster</div>
           </div>
-          <div class="template-option tpl-anniversary" tabindex="0" role="button" aria-pressed="false">
+          <div class="template-option tpl-anniversary" tabindex="0" role="button" aria-pressed="false" aria-label="Select Work Anniversary template">
             <div class="template-option-name">Work Anniversary</div>
+          </div>
+        </div>
+        <button id="moreTemplatesBtn">More Templates <span id="moreTemplatesArrow">▶</span></button>
+        <div class="template-grid extra-templates" id="extraTemplatesGrid" style="display:none">
+          <div class="template-option tpl-calling-card" tabindex="0" role="button" aria-pressed="false" aria-label="Select Calling Card template">
+            <div class="template-option-name">Calling Card</div>
+          </div>
+          <div class="template-option tpl-multisys-id" tabindex="0" role="button" aria-pressed="false" aria-label="Select Multisys ID template">
+            <div class="template-option-name">Multisys ID</div>
           </div>
         </div>
         <div id="csvFormatRow" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #222;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div style="width:100%">
-            <div style="font-size:11px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">CSV Columns</div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-              <div id="csvFormatCols" style="font-size:13px;color:#aaa;margin-bottom:0"></div>
-              <span style="color:#333;font-size:13px;margin:0 6px">|</span>
-              <a id="csvSampleLink" href="#" target="_blank" style="font-size:13px;color:#aaa;text-decoration:none;white-space:nowrap;display:flex;align-items:center;gap:4px">Open Template Sheet <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:0.5px">CSV Columns</div>
+              <div style="width:1px;height:11px;background:#333"></div>
+              <a id="csvSampleLink" href="#" target="_blank" style="color:#0099ff;text-decoration:none;font-size:12px;font-weight:500;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">Open Template Sheet <svg width="11" height="11" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            </div>
+            <div style="margin-bottom:10px;font-size:13px;line-height:1.7">
+              <span id="csvFormatCols" style="color:#aaa"></span>
             </div>
             <div id="csvPhotoHint" class="hint" style="margin:0;font-size:12px">Photo filenames can be in any name order —
               <code>Juan Dela Cruz.png</code> and <code>Dela Cruz, Juan.png</code> both match "Juan Dela Cruz"</div>
@@ -830,22 +1050,38 @@
             <input type="file" id="csvInput" accept=".csv" />
             <div class="zone-label" id="csvLabel">Drop CSV file here or click to browse</div>
             <div class="zone-sub">Google Sheets → File → Download → CSV</div>
-            <button class="zone-remove-btn" id="csvRemoveBtn" style="display:none" title="Remove CSV">×</button>
+            <button class="zone-remove-btn" id="csvRemoveBtn" style="display:none" title="Remove CSV"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
           </div>
 
           <div class="upload-zone" id="photoZone">
             <input type="file" id="photoInput" accept=".png" multiple />
             <div class="zone-label" id="photoLabel">Drop PNG photos here or click to browse</div>
             <div class="zone-sub" id="photoSub">PNG only — ensures transparent backgrounds</div>
-            <button class="zone-remove-btn" id="photoRemoveBtn" style="display:none" title="Remove all photos">×</button>
+            <button class="zone-remove-btn" id="photoRemoveBtn" style="display:none" title="Remove all photos"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
           </div>
           <div class="photo-list" id="photoList"></div>
+
+          <div class="upload-zone" id="signatureZone" style="display:none">
+            <input type="file" id="signatureInput" accept=".png" multiple />
+            <div class="zone-label" id="signatureLabel">Drop signature PNGs here or click to browse</div>
+            <div class="zone-sub">Match filenames to employee names · PNG only</div>
+            <button class="zone-remove-btn" id="signatureRemoveBtn" style="display:none" title="Remove all signatures"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+          </div>
+          <div class="photo-list" id="signatureList" style="display:none"></div>
         </div>
 
         <!-- Manual entry mode -->
         <div id="manualMode" style="display:none">
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px">
+          <div class="form-scroll-wrap"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px">
           <div class="form-row" id="manualFormRow" style="min-width:460px;margin-bottom:0">
+            <!-- Employee Number: first in grid for multisys-id -->
+            <div class="form-field" id="manualEmployeeNumberField" style="display:none">
+              <label class="form-label" for="manualEmployeeNumber">Employee Number <span style="color:#cc3333">*</span></label>
+              <div class="phone-prefix-wrapper">
+                <span class="phone-prefix">MTC-</span>
+                <input class="form-input" type="text" id="manualEmployeeNumber" placeholder="0001" autocomplete="off" inputmode="numeric" />
+              </div>
+            </div>
             <!-- Birthday: first in grid, shown only for birthday (bday-layout) -->
             <div class="form-field" id="manualBirthdayField" style="display:none">
               <label class="form-label" for="manualBirthday">Birthday <span style="color:#cc3333">*</span></label>
@@ -865,23 +1101,129 @@
               <label class="form-label" for="manualYears">Years <span style="color:#cc3333">*</span></label>
               <input class="form-input" type="text" id="manualYears" placeholder="3" autocomplete="off" inputmode="numeric" />
             </div>
-            <div class="form-field" id="manualNameField">
-              <label class="form-label" for="manualName">Full Name <span style="color:#cc3333">*</span></label>
-              <input class="form-input" type="text" id="manualName" placeholder="Maria Santos" autocomplete="off" />
+            <!-- cc-layout left column: Name, Position, Email -->
+            <div id="ccLeft">
+              <div class="form-field" id="manualNameField">
+                <label class="form-label" for="manualName">Full Name <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualName" placeholder="Maria Santos" autocomplete="off" />
+              </div>
+              <div class="form-field" id="manualPositionField">
+                <label class="form-label" for="manualPosition">Position <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualPosition" placeholder="Software Engineer" autocomplete="off" />
+              </div>
+              <div class="form-field" id="manualDeptField">
+                <label class="form-label" for="manualDept">Department</label>
+                <input class="form-input" type="text" id="manualDept" placeholder="Engineering" autocomplete="off" />
+              </div>
+              <div class="form-field" id="manualDivisionField" style="display:none">
+                <label class="form-label" for="manualDivision">Division</label>
+                <input class="form-input" type="text" id="manualDivision" placeholder="Mobile Development" autocomplete="off" />
+              </div>
+              <div class="form-field" id="manualEmailField" style="display:none">
+                <label class="form-label" for="manualEmail">Email <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="email" id="manualEmail" placeholder="maria.santos@multisyscorp.com" autocomplete="off" />
+              </div>
+              <div class="form-field" id="manualMobileField" style="display:none">
+                <label class="form-label" for="manualMobile">Contact Number <span style="color:#cc3333">*</span></label>
+                <div class="phone-prefix-wrapper">
+                  <span class="phone-prefix">+63</span>
+                  <input class="form-input" type="tel" id="manualMobile" placeholder="9171234567" autocomplete="off" inputmode="numeric" maxlength="10" />
+                </div>
+                <div id="extraNumbersList"></div>
+                <button type="button" id="addNumberBtn" style="display:none;margin-top:8px;font-size:12px;font-weight:600;color:#0099ff;background:none;border:none;cursor:pointer;padding:0;letter-spacing:0.3px">＋ Add Number</button>
+              </div>
             </div>
-            <div class="form-field" id="manualPositionField">
-              <label class="form-label" for="manualPosition">Position <span style="color:#cc3333">*</span></label>
-              <input class="form-input" type="text" id="manualPosition" placeholder="Software Engineer" autocomplete="off" />
-            </div>
-            <div class="form-field" id="manualDeptField">
-              <label class="form-label" for="manualDept">Department</label>
-              <input class="form-input" type="text" id="manualDept" placeholder="Engineering" autocomplete="off" />
-            </div>
-            <div class="form-field" id="manualDivisionField" style="display:none">
-              <label class="form-label" for="manualDivision">Division</label>
-              <input class="form-input" type="text" id="manualDivision" placeholder="Mobile Development" autocomplete="off" />
+            <!-- cc-layout right column: QR Preview -->
+            <div id="ccRight">
+              <div id="qrPreviewLabel" style="font-size:11px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">QR Preview</div>
+              <!-- Placeholder shown before a number is entered -->
+              <div id="qrPlaceholder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1.5px dashed #2a2a2a;border-radius:12px;padding:24px 16px;min-height:140px">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="0.25">
+                  <rect x="2" y="2" width="15" height="15" rx="2" stroke="#fff" stroke-width="2"/>
+                  <rect x="6" y="6" width="7" height="7" fill="#fff"/>
+                  <rect x="23" y="2" width="15" height="15" rx="2" stroke="#fff" stroke-width="2"/>
+                  <rect x="27" y="6" width="7" height="7" fill="#fff"/>
+                  <rect x="2" y="23" width="15" height="15" rx="2" stroke="#fff" stroke-width="2"/>
+                  <rect x="6" y="27" width="7" height="7" fill="#fff"/>
+                  <rect x="23" y="23" width="4" height="4" fill="#fff"/>
+                  <rect x="30" y="23" width="8" height="4" fill="#fff"/>
+                  <rect x="23" y="30" width="8" height="8" fill="#fff"/>
+                  <rect x="34" y="30" width="4" height="4" fill="#fff"/>
+                </svg>
+                <span style="font-size:11px;color:#3a3a3a;text-align:center;line-height:1.4">Enter a contact number<br>to generate QR</span>
+              </div>
+              <!-- Calling Card: QR preview inside right column -->
+              <div class="qr-preview-wrap" id="manualQrPreview" style="display:none">
+                <div style="position:relative;display:inline-block;line-height:0">
+                  <img id="manualQrImg" src="" alt="QR Code" />
+                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);line-height:0">
+                    <img src="/msys-bars-logo.png" alt="Multisys" style="height:30px;width:auto;display:block;mix-blend-mode:multiply" />
+                  </div>
+                </div>
+                <div>
+                  <div class="qr-preview-uri" id="manualQrUri"></div>
+                  <button id="qrDownloadBtn" style="margin-top:8px;padding:6px 12px;font-size:12px;font-weight:500;color:#ccc;background:#1e1e1e;border:1px solid #333;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:32px;transition:background 0.15s">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Download QR
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+          </div></div><!-- /.form-scroll-wrap -->
+
+          <!-- Multisys ID extended fields -->
+          <div id="manualIdSection" style="display:none;margin-bottom:12px">
+            <div class="id-section-header">Employee Information</div>
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-field">
+                <label class="form-label" for="manualAddress">Address <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualAddress" autocomplete="off" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualPhoneNumber">Phone Number <span style="color:#cc3333">*</span></label>
+                <div class="phone-prefix-wrapper">
+                  <span class="phone-prefix">+63</span>
+                  <input class="form-input" type="tel" id="manualPhoneNumber" placeholder="9171234567" autocomplete="off" inputmode="numeric" maxlength="10" />
+                </div>
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualSss">SSS Number <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualSss" autocomplete="off" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-field">
+                <label class="form-label" for="manualTin">TIN Number <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualTin" autocomplete="off" inputmode="numeric" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualHdmf">Pag-ibig Number <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualHdmf" autocomplete="off" inputmode="numeric" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualPhilhealth">PhilHealth Number <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualPhilhealth" autocomplete="off" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="id-section-header">Emergency Contact</div>
+            <div class="form-row" style="margin-bottom:0">
+              <div class="form-field">
+                <label class="form-label" for="manualContactName">Contact Name <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualContactName" autocomplete="off" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualContactAddress">Contact Address <span style="color:#cc3333">*</span></label>
+                <input class="form-input" type="text" id="manualContactAddress" autocomplete="off" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="manualContactNumber">Contact Number <span style="color:#cc3333">*</span></label>
+                <div class="phone-prefix-wrapper">
+                  <span class="phone-prefix">+63</span>
+                  <input class="form-input" type="text" id="manualContactNumber" placeholder="9171234567" autocomplete="off" inputmode="numeric" maxlength="10" />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="upload-zone" id="manualPhotoZone">
@@ -891,7 +1233,19 @@
             <div class="photo-match-hint neutral" id="photoMatchHint" style="display:none"></div>
           </div>
 
+          <div id="manualSignatureSection" style="display:none">
+            <div class="id-section-header">Signature</div>
+            <div class="upload-zone" id="manualSignatureZone" style="padding:10px 14px">
+              <input type="file" id="manualSignatureInput" accept=".png" />
+              <div class="zone-label" id="manualSignatureLabel">Click to upload signature PNG (optional)</div>
+            </div>
+          </div>
+
           <button class="btn btn-secondary" id="addEmployeeBtn" style="width:100%;margin-top:12px">+ Add Employee</button>
+          <div id="manualErrorBanner" role="alert" aria-live="assertive" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(204,51,51,0.12);border:1px solid rgba(204,51,51,0.35);border-radius:10px;font-size:13px;color:#e05555;line-height:1.4;position:relative;padding-right:32px">
+            <span id="manualErrorText"></span>
+            <button onclick="setManualError('')" style="position:absolute;top:50%;right:10px;transform:translateY(-50%);background:none;border:none;color:#e05555;cursor:pointer;font-size:16px;line-height:1;padding:6px;opacity:0.7;transition:opacity 0.15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" aria-label="Dismiss error">✕</button>
+          </div>
 
           <div id="deptConfirm" style="display:none;margin-top:12px">
             <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#1c1c1c;border:1px solid #333;border-radius:12px;">
@@ -922,13 +1276,17 @@
             <tr>
               <th>Name</th>
               <th>Position</th>
-              <th>Department</th>
+              <th id="thDepartment">Department</th>
               <th id="thDivision" style="display:none">Division</th>
               <th id="thBirthday" style="display:none">Birthday</th>
               <th id="thYears" style="display:none">Years</th>
               <th id="thDateHired" style="display:none">Date Hired</th>
-              <th class="th-photo">Photo</th>
-              <th class="th-upload"></th>
+              <th id="thEmail" style="display:none">Email</th>
+              <th id="thMobile" style="display:none">Mobile</th>
+              <th id="thEmployeeNumber" style="display:none">Employee #</th>
+              <th class="th-photo" id="thPhoto">Photo</th>
+              <th id="thSignature" style="display:none">Signature</th>
+              <th class="th-upload" id="thUpload"></th>
             </tr>
           </thead>
           <tbody id="previewBody"></tbody>
@@ -971,8 +1329,8 @@
 
 <!-- Edit Modal -->
 <div class="edit-modal-overlay" id="editModalOverlay">
-  <div class="edit-modal-box">
-    <div class="edit-modal-title">Edit Poster</div>
+  <div class="edit-modal-box" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+    <div class="edit-modal-title" id="editModalTitle">Edit Poster</div>
     <div id="editAnniversaryRow" style="display:none;margin-bottom:12px;gap:12px">
       <div class="form-field" id="editDateHiredField" style="flex:1">
         <label class="form-label" for="editDateHired">Date Hired</label>
@@ -984,14 +1342,37 @@
         <input class="form-input" type="text" id="editYears" placeholder="3" autocomplete="off" inputmode="numeric" style="width:120px" />
       </div>
     </div>
-    <div class="form-field" style="margin-bottom:12px">
+    <div class="form-field" id="editNameField" style="margin-bottom:12px">
       <label class="form-label" for="editName">Full Name</label>
       <input class="form-input" type="text" id="editName" autocomplete="off" />
+    </div>
+    <div id="editNameSplitRow" style="display:none;flex-direction:row;gap:10px;margin-bottom:12px">
+      <div class="form-field" style="flex:1">
+        <label class="form-label" for="editFirstName">First Name</label>
+        <input class="form-input" type="text" id="editFirstName" autocomplete="off" />
+      </div>
+      <div class="form-field" style="flex:1">
+        <label class="form-label" for="editLastName">Last Name</label>
+        <input class="form-input" type="text" id="editLastName" autocomplete="off" />
+      </div>
     </div>
     <div class="form-field" style="margin-bottom:12px">
       <label class="form-label" for="editPosition">Position</label>
       <input class="form-input" type="text" id="editPosition" autocomplete="off" />
     </div>
+    <!-- Calling Card fields -->
+    <div class="form-field" id="editEmailField" style="display:none;margin-bottom:12px">
+      <label class="form-label" for="editEmail">Email</label>
+      <input class="form-input" type="email" id="editEmail" autocomplete="off" />
+    </div>
+    <div class="form-field" id="editMobileField" style="display:none;margin-bottom:12px">
+      <label class="form-label" for="editMobile">Contact Number</label>
+      <div class="phone-prefix-wrapper">
+        <span class="phone-prefix">+63</span>
+        <input class="form-input" type="tel" id="editMobile" autocomplete="off" inputmode="numeric" />
+      </div>
+    </div>
+    <!-- Standard fields -->
     <div class="form-field" id="editDivisionField" style="display:none;margin-bottom:12px">
       <label class="form-label" for="editDivision">Division</label>
       <input class="form-input" type="text" id="editDivision" autocomplete="off" />
@@ -1007,11 +1388,72 @@
         <div class="photo-match-hint" id="editBirthdaySpellingHint" style="display:none;flex-shrink:0;white-space:nowrap;margin-top:0"></div>
       </div>
     </div>
+    <!-- Multisys ID extra fields -->
+    <div id="editIdSection" style="display:none">
+      <div class="id-section-header" style="margin-top:0">Employee Information</div>
+      <div class="form-field" style="margin-top:12px;margin-bottom:10px">
+        <label class="form-label" for="editEmployeeNumber">Employee Number</label>
+        <div class="phone-prefix-wrapper">
+          <span class="phone-prefix">MTC-</span>
+          <input class="form-input" type="text" id="editEmployeeNumber" autocomplete="off" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="form-field" style="margin-bottom:10px">
+        <label class="form-label" for="editAddress">Address</label>
+        <input class="form-input" type="text" id="editAddress" autocomplete="off" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-field">
+          <label class="form-label" for="editPhoneNumber">Phone Number</label>
+          <div class="phone-prefix-wrapper">
+            <span class="phone-prefix">+63</span>
+            <input class="form-input" type="text" id="editPhoneNumber" autocomplete="off" inputmode="numeric" maxlength="10" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="editPhilhealth">PhilHealth Number</label>
+          <input class="form-input" type="text" id="editPhilhealth" autocomplete="off" inputmode="numeric" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="editSss">SSS Number</label>
+          <input class="form-input" type="text" id="editSss" autocomplete="off" inputmode="numeric" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="editTin">TIN Number</label>
+          <input class="form-input" type="text" id="editTin" autocomplete="off" inputmode="numeric" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="editHdmf">Pag-ibig Number</label>
+          <input class="form-input" type="text" id="editHdmf" autocomplete="off" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="id-section-header">Emergency Contact</div>
+      <div class="form-field" style="margin-top:12px;margin-bottom:10px">
+        <label class="form-label" for="editContactName">Contact Name</label>
+        <input class="form-input" type="text" id="editContactName" autocomplete="off" />
+      </div>
+      <div class="form-field" style="margin-bottom:10px">
+        <label class="form-label" for="editContactAddress">Contact Address</label>
+        <input class="form-input" type="text" id="editContactAddress" autocomplete="off" />
+      </div>
+      <div class="form-field" style="margin-bottom:12px">
+        <label class="form-label" for="editContactNumber">Contact Number</label>
+        <div class="phone-prefix-wrapper">
+          <span class="phone-prefix">+63</span>
+          <input class="form-input" type="text" id="editContactNumber" autocomplete="off" inputmode="numeric" maxlength="10" />
+        </div>
+      </div>
+    </div>
     <div class="upload-zone" id="editPhotoZone" style="margin-bottom:0">
       <input type="file" id="editPhotoInput" accept=".png" />
       <div class="zone-label" id="editPhotoLabel">Replace photo (optional)</div>
       <div class="zone-sub">Leave empty to keep current photo</div>
       <div class="photo-match-hint neutral" id="editPhotoMatchHint" style="display:none"></div>
+    </div>
+    <div class="upload-zone" id="editSignatureZone" style="display:none;margin-top:10px;margin-bottom:0">
+      <input type="file" id="editSignatureInput" accept=".png" />
+      <div class="zone-label" id="editSignatureLabel">Replace signature (optional)</div>
+      <div class="zone-sub">Leave empty to keep current signature</div>
     </div>
 
     <div id="editMismatchConfirm" style="display:none;margin-top:12px">
@@ -1029,6 +1471,22 @@
   </div>
 </div>
 
+<!-- QR Lightbox -->
+<div class="lightbox" id="qrLightbox" style="cursor:default">
+  <button class="lightbox-close" id="qrLightboxClose">✕ Close</button>
+  <div style="position:relative;display:inline-block;line-height:0;border-radius:12px;overflow:hidden">
+    <img id="qrLightboxImg" src="" alt="QR Code" style="width:360px;height:360px;display:block" />
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);line-height:0">
+      <img src="/msys-bars-logo.png" alt="Multisys" style="height:90px;width:auto;display:block;mix-blend-mode:multiply" />
+    </div>
+  </div>
+  <div class="lightbox-name" id="qrLightboxLabel"></div>
+  <button id="qrLightboxDownloadBtn" style="margin-top:14px;padding:8px 18px;font-size:12px;font-weight:500;color:#ccc;background:#1e1e1e;border:1px solid #333;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:36px;transition:background 0.15s">
+    <svg width="13" height="13" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Download QR
+  </button>
+</div>
+
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" id="lightboxClose">✕ Close</button>
@@ -1041,12 +1499,59 @@
 <script>
   let currentJobId = null;
   let csvFile = null;
+
+  window._isAdmin = false;
+
+  // More Templates toggle
+  document.getElementById('moreTemplatesBtn').addEventListener('click', function() {
+    const grid = document.getElementById('extraTemplatesGrid');
+    const open = grid.style.display !== 'none';
+    grid.style.display = open ? 'none' : '';
+    document.getElementById('moreTemplatesArrow').textContent = open ? '▶' : '▼';
+  });
+
+  // Restrict numeric-only ID fields to digits
+  ['manualEmployeeNumber','manualPhoneNumber','manualSss','manualTin','manualHdmf','manualPhilhealth','manualContactNumber'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, ''); });
+  });
+
+
+  const _isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  if (_isDev) {
+    document.getElementById('devReloadBtn').addEventListener('click', async () => {
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem('devLastJob')); } catch(e) {}
+      if (!saved) return;
+      const check = await fetch('/job/' + saved.jobId);
+      if (!check.ok) {
+        alert('Last job expired — please upload again.');
+        localStorage.removeItem('devLastJob');
+        document.getElementById('devReloadWrap').style.display = 'none';
+        return;
+      }
+      const job = await check.json();
+      selectedTemplate = job.template;
+      currentEmployees = saved.employees;
+      currentJobId = saved.jobId;
+      await fetch('/job/' + saved.jobId + '/reset', { method: 'POST' });
+      goToStep(3);
+      runGenerate(saved.jobId);
+    });
+    try {
+      if (localStorage.getItem('devLastJob')) document.getElementById('devReloadWrap').style.display = '';
+    } catch(e) {}
+  }
+
   let photoFiles = [];
   let currentSuffix = '';
   let currentEmployees = [];
   let activeMode = 'csv';
   let manualEmployees = [];
   let currentManualPhoto = null;
+  let signatureFiles = [];
+  let currentManualSignature = null;
   let csvEmployeeNames = [];
   let duplicateFiles = [];
   let selectedTemplate = null;
@@ -1076,6 +1581,59 @@
     });
   });
 
+  // (More Templates button removed — all templates shown in flat grid)
+
+  // Calling Card: live QR preview
+  let qrDebounceTimer = null;
+  function updateQrPreview(mobile) {
+    const wrap = document.getElementById('manualQrPreview');
+    const placeholder = document.getElementById('qrPlaceholder');
+    if (!mobile) {
+      wrap.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'flex';
+      return;
+    }
+    clearTimeout(qrDebounceTimer);
+    qrDebounceTimer = setTimeout(() => {
+      const digits = mobile.replace(/\D/g, '');
+      let uri;
+      if (/^09\d{9}$/.test(digits))       uri = 'tel:+63' + digits.slice(1);
+      else if (/^639\d{9}$/.test(digits)) uri = 'tel:+' + digits;
+      else if (mobile.startsWith('+') && digits.length >= 10) uri = 'tel:+' + digits;
+      else uri = 'tel:' + digits;
+      document.getElementById('manualQrImg').src = '/qr-preview?mobile=' + encodeURIComponent(mobile);
+      document.getElementById('manualQrUri').textContent = uri;
+      if (placeholder) placeholder.style.display = 'none';
+      wrap.style.display = 'flex';
+    }, 400);
+  }
+  document.getElementById('manualMobile').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '');
+    updateQrPreview(this.value ? '+63' + this.value : '');
+  });
+
+  // Add Number button: up to 3 total (1 primary + 2 extra)
+  function makeExtraNumberRow() {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px';
+    row.innerHTML = `<div class="phone-prefix-wrapper" style="flex:1"><span class="phone-prefix">+63</span><input class="form-input extra-number-input" type="tel" placeholder="9171234567" autocomplete="off" inputmode="numeric" maxlength="10" /></div><button type="button" class="remove-extra-number btn-icon" style="min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center" title="Remove">×</button>`;
+    row.querySelector('.extra-number-input').addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '');
+    });
+    row.querySelector('.remove-extra-number').addEventListener('click', function () {
+      row.remove();
+      const list = document.getElementById('extraNumbersList');
+      document.getElementById('addNumberBtn').style.display = list.children.length < 2 ? '' : 'none';
+    });
+    return row;
+  }
+  document.getElementById('addNumberBtn').addEventListener('click', function () {
+    const list = document.getElementById('extraNumbersList');
+    if (list.children.length >= 2) return;
+    list.appendChild(makeExtraNumberRow());
+    if (list.children.length >= 2) this.style.display = 'none';
+  });
+
   function clearAllFields() {
     csvFile = null;
     photoFiles = [];
@@ -1092,6 +1650,8 @@
     document.getElementById('photoLabel').textContent = 'Drop PNG photos here or click to browse';
     document.getElementById('photoSub').textContent = 'PNG only — ensures transparent backgrounds';
     document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
+    document.getElementById('extraNumbersList').innerHTML = '';
+    document.getElementById('addNumberBtn').style.display = 'none';
     document.getElementById('manualName').value = '';
     document.getElementById('manualPosition').value = '';
     document.getElementById('manualDept').value = '';
@@ -1099,6 +1659,20 @@
     document.getElementById('manualBirthday').value = '';
     document.getElementById('manualYears').value = '';
     document.getElementById('manualDateHired').value = '';
+    document.getElementById('manualEmail').value = '';
+    document.getElementById('manualMobile').value = '';
+    document.getElementById('manualEmployeeNumber').value = '';
+    document.getElementById('manualAddress').value = '';
+    document.getElementById('manualPhoneNumber').value = '';
+    document.getElementById('manualPhilhealth').value = '';
+    document.getElementById('manualSss').value = '';
+    document.getElementById('manualTin').value = '';
+    document.getElementById('manualHdmf').value = '';
+    document.getElementById('manualContactName').value = '';
+    document.getElementById('manualContactAddress').value = '';
+    document.getElementById('manualContactNumber').value = '';
+    document.getElementById('manualQrPreview').style.display = 'none';
+    const _qrph = document.getElementById('qrPlaceholder'); if (_qrph) _qrph.style.display = 'flex';
     document.getElementById('birthdaySpellingHint').style.display = 'none';
     document.getElementById('dateHiredSpellingHint').style.display = 'none';
     document.getElementById('csvZone').classList.remove('has-file');
@@ -1106,40 +1680,130 @@
     document.getElementById('manualPhotoZone').classList.remove('has-file');
     document.getElementById('photoMatchHint').style.display = 'none';
     renderPhotoList();
+    signatureFiles = [];
+    currentManualSignature = null;
+    document.getElementById('signatureInput').value = '';
+    document.getElementById('signatureLabel').textContent = 'Drop signature PNGs here or click to browse';
+    document.getElementById('signatureRemoveBtn').style.display = 'none';
+    document.getElementById('signatureZone').classList.remove('has-file');
+    document.getElementById('signatureList').innerHTML = '';
+    document.getElementById('manualSignatureInput').value = '';
+    document.getElementById('manualSignatureLabel').textContent = 'Click to upload signature PNG (optional)';
+    document.getElementById('manualSignatureZone').classList.remove('has-file');
     renderManualList();
     setError('');
     updateUploadBtn();
   }
 
   function onTemplateChange() {
-    const isBirthday = selectedTemplate === 'birthday';
-    const isAnniversary = selectedTemplate === 'anniversary';
-    const needsDivision = isBirthday || isAnniversary;
+    const isBirthday      = selectedTemplate === 'birthday';
+    const isAnniversary   = selectedTemplate === 'anniversary';
+    const isCallingCard   = selectedTemplate === 'calling-card';
+    const isMultisysId    = selectedTemplate === 'multisys-id';
+    const needsDivision   = isBirthday || isAnniversary;
 
     // Manual form fields
-    const divField = document.getElementById('manualDivisionField');
-    const bdField = document.getElementById('manualBirthdayField');
-    const annField = document.getElementById('manualYearsField');
-    const dhField = document.getElementById('manualDateHiredField');
+    const divField  = document.getElementById('manualDivisionField');
+    const bdField   = document.getElementById('manualBirthdayField');
+    const annField  = document.getElementById('manualYearsField');
+    const dhField   = document.getElementById('manualDateHiredField');
+    const deptField = document.getElementById('manualDeptField');
+    const emailField  = document.getElementById('manualEmailField');
+    const mobileField = document.getElementById('manualMobileField');
+    const empNumField = document.getElementById('manualEmployeeNumberField');
+    const idSection   = document.getElementById('manualIdSection');
+    const sigSection  = document.getElementById('manualSignatureSection');
+    const photoZone   = document.getElementById('manualPhotoZone');
+    const qrPlaceholder  = document.getElementById('qrPlaceholder');
+    const qrPreview      = document.getElementById('manualQrPreview');
+    const qrPreviewLabel = document.getElementById('qrPreviewLabel');
     const formRow = document.getElementById('manualFormRow');
-    formRow.classList.remove('four-cols', 'ann-layout', 'bday-layout');
+    formRow.classList.remove('four-cols', 'ann-layout', 'bday-layout', 'cc-layout');
+
     if (isAnniversary) {
       formRow.classList.add('ann-layout');
       annField.style.display = '';
       dhField.style.display = '';
       bdField.style.display = 'none';
       divField.style.display = '';
+      deptField.style.display = '';
+      emailField.style.display = 'none';
+      mobileField.style.display = 'none';
+      empNumField.style.display = 'none';
+      idSection.style.display = 'none';
+      sigSection.style.display = 'none';
+      photoZone.style.display = '';
+      document.getElementById('ccRight').style.display = 'none';
+      qrPlaceholder.style.display = 'none';
+      qrPreview.style.display = 'none';
+      qrPreviewLabel.style.display = 'none';
     } else if (isBirthday) {
       formRow.classList.add('bday-layout');
       bdField.style.display = '';
       annField.style.display = 'none';
       dhField.style.display = 'none';
       divField.style.display = '';
+      deptField.style.display = '';
+      emailField.style.display = 'none';
+      mobileField.style.display = 'none';
+      empNumField.style.display = 'none';
+      idSection.style.display = 'none';
+      sigSection.style.display = 'none';
+      photoZone.style.display = '';
+      document.getElementById('ccRight').style.display = 'none';
+      qrPlaceholder.style.display = 'none';
+      qrPreview.style.display = 'none';
+      qrPreviewLabel.style.display = 'none';
+    } else if (isCallingCard) {
+      formRow.classList.add('cc-layout');
+      annField.style.display = 'none';
+      dhField.style.display = 'none';
+      bdField.style.display = 'none';
+      divField.style.display = 'none';
+      deptField.style.display = 'none';
+      emailField.style.display = '';
+      mobileField.style.display = '';
+      empNumField.style.display = 'none';
+      idSection.style.display = 'none';
+      sigSection.style.display = 'none';
+      photoZone.style.display = 'none';
+      document.getElementById('ccRight').style.display = '';
+      qrPlaceholder.style.display = 'flex';
+      qrPreview.style.display = 'none';
+      qrPreviewLabel.style.display = '';
+      document.getElementById('addNumberBtn').style.display = '';
+    } else if (isMultisysId) {
+      annField.style.display = 'none';
+      dhField.style.display = 'none';
+      bdField.style.display = 'none';
+      divField.style.display = 'none';
+      deptField.style.display = 'none';
+      emailField.style.display = 'none';
+      mobileField.style.display = 'none';
+      empNumField.style.display = '';
+      idSection.style.display = '';
+      sigSection.style.display = '';
+      photoZone.style.display = '';
+      document.getElementById('ccRight').style.display = 'none';
+      qrPlaceholder.style.display = 'none';
+      qrPreview.style.display = 'none';
+      qrPreviewLabel.style.display = 'none';
     } else {
       annField.style.display = 'none';
       dhField.style.display = 'none';
       bdField.style.display = 'none';
       divField.style.display = 'none';
+      deptField.style.display = '';
+      emailField.style.display = 'none';
+      mobileField.style.display = 'none';
+      empNumField.style.display = 'none';
+      idSection.style.display = 'none';
+      sigSection.style.display = 'none';
+      photoZone.style.display = '';
+      document.getElementById('ccRight').style.display = 'none';
+      qrPlaceholder.style.display = 'none';
+      qrPreview.style.display = 'none';
+      qrPreviewLabel.style.display = 'none';
     }
 
     // Birthday swaps the dept/division labels (CSV: D=Division, E=Department)
@@ -1153,37 +1817,57 @@
     const csvFormatCols = document.getElementById('csvFormatCols');
     const csvSampleLink = document.getElementById('csvSampleLink');
     const CSV_FORMATS = {
-      birthday:       { cols: 'Birthday, Full Name, Position, Division, Department',
-                        sheet: 'https://docs.google.com/spreadsheets/d/1GacO5q9q5VrlN6dXrPeC0EA0rr3QJ65Nw5pe2s282XM/edit?usp=sharing' },
-      'new-employee': { cols: 'Full Name, Position, Department',
-                        sheet: 'https://docs.google.com/spreadsheets/d/1SuuJHCiCrhc5KfPhZlpsI2R-a0yGngFwAe-IuXxUqYg/edit?usp=sharing' },
-      anniversary:    { cols: 'Date Hired, Years, Full Name, Position, Division, Department',
-                        sheet: 'https://docs.google.com/spreadsheets/d/1qBQLyo7vK846wbNEaXI63g66NGJLTg3LaML8-QlOsIE/edit?usp=sharing' },
+      birthday:         { cols: 'Birthday, Full Name, Position, Division, Department',
+                          sheet: 'https://docs.google.com/spreadsheets/d/1GacO5q9q5VrlN6dXrPeC0EA0rr3QJ65Nw5pe2s282XM/edit?usp=sharing' },
+      'new-employee':   { cols: 'Full Name, Position, Department',
+                          sheet: 'https://docs.google.com/spreadsheets/d/1SuuJHCiCrhc5KfPhZlpsI2R-a0yGngFwAe-IuXxUqYg/edit?usp=sharing' },
+      anniversary:      { cols: 'Date Hired, Years, Full Name, Position, Division, Department',
+                          sheet: 'https://docs.google.com/spreadsheets/d/1qBQLyo7vK846wbNEaXI63g66NGJLTg3LaML8-QlOsIE/edit?usp=sharing' },
+      'calling-card':   { cols: 'Full Name, Position, Email, Contact Number',
+                          sheet: 'https://docs.google.com/spreadsheets/d/1BNoGZy6Pfp9hWdv5_Exm35EH9nAsaK7CmiRj5Llgt18/edit?usp=sharing' },
+      'multisys-id':    { cols: 'Employee Number, Full Name, Position, Address, Phone Number, SSS Number, TIN, Pag-ibig, PhilHealth Number, Emergency Contact Name, Emergency Contact Address, Emergency Contact Number',
+                          sheet: 'https://docs.google.com/spreadsheets/d/1ytLXkq1eeNbNhX_lWg7UnyDeJv7NhE60oR7e7iMph1k/edit?usp=sharing' },
     };
     const fmt = CSV_FORMATS[selectedTemplate];
     if (fmt) {
       csvFormatCols.textContent = fmt.cols;
-      csvSampleLink.href = fmt.sheet;
+      csvSampleLink.href = fmt.sheet || '#';
+      csvSampleLink.style.display = fmt.sheet ? '' : 'none';
       csvFormatRow.style.display = 'flex';
     } else {
       csvFormatRow.style.display = 'none';
     }
 
+    // Photo hint only for templates that need photos
+    const csvPhotoHint = document.getElementById('csvPhotoHint');
+    const noPhotoTpl = isCallingCard;
+    if (csvPhotoHint) csvPhotoHint.style.display = noPhotoTpl ? 'none' : '';
+    const photoZoneBatch = document.getElementById('photoZone');
+    if (photoZoneBatch) photoZoneBatch.style.display = noPhotoTpl ? 'none' : '';
+    const sigZoneBatch = document.getElementById('signatureZone');
+    const sigListBatch = document.getElementById('signatureList');
+    if (sigZoneBatch) { sigZoneBatch.style.display = isMultisysId ? '' : 'none'; sigListBatch.style.display = isMultisysId ? '' : 'none'; }
+
     // Preview table columns
-    const thDiv = document.getElementById('thDivision');
-    if (thDiv) thDiv.style.display = needsDivision ? '' : 'none';
-    const thBd = document.getElementById('thBirthday');
-    if (thBd) thBd.style.display = isBirthday ? '' : 'none';
-    const thYears = document.getElementById('thYears');
-    if (thYears) thYears.style.display = isAnniversary ? '' : 'none';
-    const thDH = document.getElementById('thDateHired');
-    if (thDH) thDH.style.display = isAnniversary ? '' : 'none';
+    document.getElementById('thDepartment').style.display     = (isCallingCard || isMultisysId) ? 'none' : '';
+    document.getElementById('thDivision').style.display       = needsDivision ? '' : 'none';
+    document.getElementById('thBirthday').style.display       = isBirthday ? '' : 'none';
+    document.getElementById('thYears').style.display          = isAnniversary ? '' : 'none';
+    document.getElementById('thDateHired').style.display      = isAnniversary ? '' : 'none';
+    document.getElementById('thEmail').style.display          = isCallingCard ? '' : 'none';
+    document.getElementById('thMobile').style.display         = isCallingCard ? '' : 'none';
+    document.getElementById('thEmployeeNumber').style.display = isMultisysId ? '' : 'none';
+    document.getElementById('thPhoto').style.display          = noPhotoTpl ? 'none' : '';
+    document.getElementById('thSignature').style.display      = isMultisysId ? '' : 'none';
 
     // Edit modal fields
-    const editDivField = document.getElementById('editDivisionField');
-    if (editDivField) editDivField.style.display = needsDivision ? '' : 'none';
-    const editAnnRow = document.getElementById('editAnniversaryRow');
-    if (editAnnRow) editAnnRow.style.display = isAnniversary ? 'flex' : 'none';
+    document.getElementById('editDivisionField').style.display  = needsDivision ? '' : 'none';
+    document.getElementById('editAnniversaryRow').style.display = isAnniversary ? 'flex' : 'none';
+    document.getElementById('editEmailField').style.display     = isCallingCard ? '' : 'none';
+    document.getElementById('editMobileField').style.display    = isCallingCard ? '' : 'none';
+    document.getElementById('editDeptField').style.display      = (isCallingCard || isMultisysId) ? 'none' : '';
+    document.getElementById('editPhotoZone').style.display      = noPhotoTpl ? 'none' : '';
+    document.getElementById('editIdSection').style.display      = isMultisysId ? '' : 'none';
   }
 
   const csvInput = document.getElementById('csvInput');
@@ -1196,13 +1880,21 @@
     const lines = cleaned.split(/\r?\n/).filter(Boolean);
     if (!lines.length) return 'unknown';
     const first = splitCSVRow(lines[0]);
-    const headerKw = ['name','full name','fullname','position','title','department','dept','division','birthday','date','years'];
+    const headerKw = ['name','full name','fullname','position','title','department','dept','division','birthday','date','years','email','mobile','employee','sss','hdmf','philhealth','pag-ibig','pagibig'];
     const isHeader = first.some(c => headerKw.includes(c.replace(/[^\x20-\x7E]/g,'').toLowerCase().trim()));
+    if (isHeader) {
+      const hl = first.map(c => c.replace(/[^\x20-\x7E]/g,'').toLowerCase().trim());
+      if (hl.some(c => c.includes('sss') || c.includes('philhealth') || c.includes('hdmf') || c.includes('pag-ibig') || c.includes('pagibig'))) return 'multisys-id';
+      if (hl.some(c => c.includes('email') || c.includes('mobile') || c === 'contact number')) return 'calling-card';
+    }
     const dataRow = isHeader ? splitCSVRow(lines[1] || '') : first;
     const col0 = (dataRow[0] || '').trim();
     const col1 = (dataRow[1] || '').trim();
-    if (!DATE_PAT.test(col0)) return 'new-employee';
-    return /^\d+$/.test(col1) ? 'anniversary' : 'birthday';
+    if (DATE_PAT.test(col0)) return /^\d+$/.test(col1) ? 'anniversary' : 'birthday';
+    const numCols = (isHeader ? first : dataRow).filter(c => c.trim() !== '').length;
+    if (numCols >= 10) return 'multisys-id';
+    if (numCols >= 4)  return 'calling-card';
+    return 'new-employee';
   }
 
   csvInput.addEventListener('change', () => {
@@ -1221,7 +1913,7 @@
       const text = e.target.result;
       const detected = detectCSVType(text);
       if (detected !== 'unknown' && detected !== selectedTemplate) {
-        const names = { 'birthday': 'Birthday', 'new-employee': 'New Employee', 'anniversary': 'Work Anniversary' };
+        const names = { 'birthday': 'Birthday', 'new-employee': 'New Employee', 'anniversary': 'Work Anniversary', 'calling-card': 'Calling Card', 'multisys-id': 'Multisys ID' };
         const expected = names[selectedTemplate] || selectedTemplate;
         const got = names[detected] || detected;
         setError(`Wrong CSV: this is a ${got} Poster CSV. You have ${expected} Poster selected. Please switch templates or upload the correct CSV.`);
@@ -1321,6 +2013,134 @@
     updatePhotoZone();
   });
 
+  // Remove white background from signature PNG using luminance: white→transparent, black→opaque.
+  // Skips processing if the image already has transparency (prevents opaque-black artifacts).
+  // Crops the result to the bounding box of visible pixels.
+  function removeSigBackground(file) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+
+        // If image already has any transparency, skip luminance step — applying it to
+        // transparent (RGB=0,0,0,0) pixels would make them solid black (255-0=255 alpha).
+        let hasTransparency = false;
+        for (let i = 3; i < d.length; i += 4) {
+          if (d[i] < 200) { hasTransparency = true; break; }
+        }
+
+        if (!hasTransparency) {
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            d[i + 3] = Math.round(255 - gray);
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Crop to bounding box of visible pixels
+        let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            if (d[(y * canvas.width + x) * 4 + 3] > 10) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        if (minX > maxX || minY > maxY) { resolve(file); return; } // blank — keep original
+
+        const pad = 4;
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(canvas.width - 1, maxX + pad);
+        maxY = Math.min(canvas.height - 1, maxY + pad);
+
+        const cropW = maxX - minX + 1;
+        const cropH = maxY - minY + 1;
+        const cropped = document.createElement('canvas');
+        cropped.width = cropW; cropped.height = cropH;
+        cropped.getContext('2d').drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // 1px black stroke: fill the signature shape solid black, draw it at all 8 neighbor
+        // offsets on a slightly larger canvas, then draw the original on top centered.
+        const mask = document.createElement('canvas');
+        mask.width = cropW; mask.height = cropH;
+        const mctx = mask.getContext('2d');
+        mctx.drawImage(cropped, 0, 0);
+        mctx.globalCompositeOperation = 'source-in';
+        mctx.fillStyle = '#000';
+        mctx.fillRect(0, 0, cropW, cropH);
+
+        const out = document.createElement('canvas');
+        out.width = cropW + 2; out.height = cropH + 2;
+        const octx = out.getContext('2d');
+        [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].forEach(([dx, dy]) => {
+          octx.drawImage(mask, 1 + dx, 1 + dy);
+        });
+        octx.drawImage(cropped, 1, 1);
+
+        out.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/png' })), 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  // Batch signature zone
+  const signatureInput = document.getElementById('signatureInput');
+  document.getElementById('signatureRemoveBtn').addEventListener('click', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    signatureFiles = [];
+    signatureInput.value = '';
+    updateSignatureZone();
+  });
+  signatureInput.addEventListener('change', async () => {
+    const incoming = Array.from(signatureInput.files);
+    signatureInput.value = '';
+    const existingNames = new Set(signatureFiles.map(f => f.name));
+    const toProcess = incoming.filter(f => !existingNames.has(f.name));
+    const processed = await Promise.all(toProcess.map(f => removeSigBackground(f)));
+    processed.forEach(f => signatureFiles.push(f));
+    updateSignatureZone();
+  });
+  function updateSignatureZone() {
+    const label = document.getElementById('signatureLabel');
+    document.getElementById('signatureZone').classList.toggle('has-file', signatureFiles.length > 0);
+    document.getElementById('signatureRemoveBtn').style.display = signatureFiles.length > 0 ? '' : 'none';
+    if (signatureFiles.length) {
+      label.textContent = `✓ ${signatureFiles.length} signature${signatureFiles.length !== 1 ? 's' : ''} selected`;
+    } else {
+      label.textContent = 'Drop signature PNGs here or click to browse';
+    }
+    renderSignatureList();
+    updateUploadBtn();
+  }
+  function renderSignatureList() {
+    const list = document.getElementById('signatureList');
+    list.innerHTML = '';
+    const nameKeys = new Set(csvEmployeeNames.map(n => normalizeNameKey(n)));
+    signatureFiles.forEach((file, i) => {
+      const base = file.name.replace(/\.[^.]+$/, '');
+      const matched = !csvFile || nameKeys.has(normalizeNameKey(base));
+      const item = document.createElement('div');
+      item.className = `photo-list-item${matched ? '' : ' no-match'}`;
+      item.innerHTML = `<span>${esc(file.name)}</span><button class="btn-icon" title="Remove">×</button>`;
+      item.querySelector('.btn-icon').addEventListener('click', () => { signatureFiles.splice(i, 1); updateSignatureZone(); });
+      list.appendChild(item);
+    });
+  }
+
   function updatePhotoZone() {
     const label = document.getElementById('photoLabel');
     const sub = document.getElementById('photoSub');
@@ -1339,6 +2159,7 @@
 
   function renderPhotoList() {
     const list = document.getElementById('photoList');
+    const sigZone = document.getElementById('signatureZone');
     list.innerHTML = '';
     const nameKeys = new Set(csvEmployeeNames.map(n => normalizeNameKey(n)));
 
@@ -1368,6 +2189,8 @@
       });
       list.appendChild(item);
     });
+
+    if (sigZone) sigZone.style.marginTop = list.children.length > 0 ? '12px' : '0';
   }
 
   function updateUploadBtn() {
@@ -1405,7 +2228,7 @@
     document.getElementById('tabManual').classList.remove('active');
     document.getElementById('csvMode').style.display = '';
     document.getElementById('manualMode').style.display = 'none';
-    setError('');
+    setError(''); setManualError('');
     updateUploadBtn();
   });
 
@@ -1421,7 +2244,8 @@
 
   // Mirrors server's normalizeNameKey for client-side live matching
   function normalizeNameKey(str) {
-    return str.toLowerCase()
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
       .replace(/[,]+/g, ' ')
       .replace(/[\s_\-\.]+/g, ' ')
       .trim().split(' ').filter(Boolean).sort().join(' ');
@@ -1536,6 +2360,15 @@
     checkPhotoMatch();
   });
 
+  // Manual signature input
+  document.getElementById('manualSignatureInput').addEventListener('change', async function () {
+    const raw = this.files[0] || null;
+    currentManualSignature = raw ? await removeSigBackground(raw) : null;
+    document.getElementById('manualSignatureLabel').textContent = currentManualSignature
+      ? `✓ ${currentManualSignature.name}` : 'Click to upload signature PNG (optional)';
+    document.getElementById('manualSignatureZone').classList.toggle('has-file', !!currentManualSignature);
+  });
+
   document.getElementById('manualName').addEventListener('input', checkPhotoMatch);
 
   // Restrict Years fields to digits only
@@ -1548,53 +2381,90 @@
 
   // Add employee button + Enter key on fields
   document.getElementById('addEmployeeBtn').addEventListener('click', addEmployee);
-  ['manualName', 'manualPosition', 'manualDept', 'manualDivision', 'manualBirthday', 'manualYears', 'manualDateHired'].forEach(id => {
+  ['manualName', 'manualPosition', 'manualDept', 'manualDivision', 'manualBirthday', 'manualYears', 'manualDateHired',
+   'manualEmail', 'manualMobile', 'manualEmployeeNumber', 'manualAddress', 'manualPhoneNumber',
+   'manualPhilhealth', 'manualSss', 'manualTin', 'manualHdmf', 'manualContactName', 'manualContactAddress', 'manualContactNumber'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') addEmployee(); });
   });
 
   function addEmployee() {
-    const name = document.getElementById('manualName').value.trim();
-    const position = document.getElementById('manualPosition').value.trim();
-    const dept = document.getElementById('manualDept').value.trim();
-    const division = document.getElementById('manualDivision').value.trim();
-    const birthday = document.getElementById('manualBirthday').value.trim();
-    const years = document.getElementById('manualYears').value.trim();
+    const name      = document.getElementById('manualName').value.trim();
+    const position  = document.getElementById('manualPosition').value.trim();
+    const dept      = document.getElementById('manualDept').value.trim();
+    const division  = document.getElementById('manualDivision').value.trim();
+    const birthday  = document.getElementById('manualBirthday').value.trim();
+    const years     = document.getElementById('manualYears').value.trim();
     const dateHired = document.getElementById('manualDateHired').value.trim();
-    if (!name || !position) {
-      setError('Please fill in Full Name and Position.');
+    const email     = document.getElementById('manualEmail').value.trim();
+    const mobile    = document.getElementById('manualMobile').value.trim();
+    const employeeNumber  = document.getElementById('manualEmployeeNumber').value.trim();
+    const address         = document.getElementById('manualAddress').value.trim();
+    const phoneNumber     = document.getElementById('manualPhoneNumber').value.trim();
+    const philhealth      = document.getElementById('manualPhilhealth').value.trim();
+    const sss             = document.getElementById('manualSss').value.trim();
+    const tin             = document.getElementById('manualTin').value.trim();
+    const hdmf            = document.getElementById('manualHdmf').value.trim();
+    const contactName     = document.getElementById('manualContactName').value.trim();
+    const contactAddress  = document.getElementById('manualContactAddress').value.trim();
+    const contactNumber   = document.getElementById('manualContactNumber').value.trim();
+
+    const isCallingCard    = selectedTemplate === 'calling-card';
+    const isMultisysId     = selectedTemplate === 'multisys-id';
+
+    // Collect all missing required fields up front, template-aware
+    const missingFields = [];
+    if (!name)     missingFields.push('Full Name');
+    if (!position) missingFields.push('Position');
+    if (isCallingCard) {
+      if (!email)  missingFields.push('Email');
+      if (!mobile) missingFields.push('Contact Number');
+    }
+    if (isMultisysId) {
+      if (!employeeNumber) missingFields.push('Employee Number');
+      if (!address)        missingFields.push('Address');
+      if (!phoneNumber)    missingFields.push('Phone Number');
+      if (!philhealth)     missingFields.push('PhilHealth Number');
+      if (!sss)            missingFields.push('SSS Number');
+      if (!tin)            missingFields.push('TIN');
+      if (!hdmf)           missingFields.push('HDMF');
+      if (!contactName)    missingFields.push('Contact Name');
+      if (!contactAddress) missingFields.push('Contact Address');
+      if (!contactNumber)  missingFields.push('Contact Number');
+    }
+    if (selectedTemplate === 'anniversary') {
+      if (!years)     missingFields.push('Years at the Company');
+      if (!dateHired) missingFields.push('Date Hired');
+    }
+    if (selectedTemplate === 'birthday' && !birthday) missingFields.push('Birthday');
+    if (missingFields.length) {
+      setManualError('Please fill in: ' + missingFields.join(', ') + '.');
+      const _fieldMap = { 'Full Name': 'manualName', 'Position': 'manualPosition', 'Birthday': 'manualBirthday', 'Years at the Company': 'manualYears', 'Date Hired': 'manualDateHired', 'Email': 'manualEmail', 'Contact Number': 'manualMobile', 'Employee Number': 'manualEmployeeNumber', 'Address': 'manualAddress', 'Phone Number': 'manualPhoneNumber', 'PhilHealth Number': 'manualPhilhealth', 'SSS Number': 'manualSss', 'TIN': 'manualTin', 'HDMF': 'manualHdmf', 'Contact Name': 'manualContactName', 'Contact Address': 'manualContactAddress', 'Contact Number (Emergency)': 'manualContactNumber' };
+      const _firstId = _fieldMap[missingFields[0]];
+      if (_firstId) { const _el = document.getElementById(_firstId); if (_el && _el.offsetParent) _el.focus(); }
       return;
     }
-    if (selectedTemplate === 'anniversary' && !years) {
-      setError('Please fill in Years at the Company.');
+    setManualError('');
+    if (selectedTemplate === 'anniversary' && dateHired && !/\d/.test(dateHired.replace(/^[a-zA-Z]+/, ''))) {
+      setManualError('Date Hired must include a day (e.g. May 01).');
       return;
     }
-    if (selectedTemplate === 'anniversary' && !dateHired) {
-      setError('Please fill in Date Hired.');
-      return;
-    }
-    if (selectedTemplate === 'anniversary' && !/\d/.test(dateHired.replace(/^[a-zA-Z]+/, ''))) {
-      setError('Date Hired must include a day (e.g. May 01).');
-      return;
-    }
-    if (selectedTemplate === 'birthday' && !birthday) {
-      setError('Please fill in Birthday.');
-      return;
-    }
-    if (selectedTemplate === 'birthday' && !/\d/.test(birthday.replace(/^[a-zA-Z]+/, ''))) {
-      setError('Birthday must include a day (e.g. May 01).');
+    if (selectedTemplate === 'birthday' && birthday && !/\d/.test(birthday.replace(/^[a-zA-Z]+/, ''))) {
+      setManualError('Birthday must include a day (e.g. May 01).');
       return;
     }
     const issues = [];
     const isDuplicate = manualEmployees.some(e => normalizeNameKey(e.fullName) === normalizeNameKey(name));
     if (isDuplicate) issues.push('this employee already exists in the list');
-    if (!dept) issues.push('department is empty');
+    if (!isCallingCard && !isMultisysId && !dept) issues.push('department is empty');
     if ((selectedTemplate === 'birthday' || selectedTemplate === 'anniversary') && !division) issues.push('division is empty');
-    if (!currentManualPhoto) {
-      issues.push('no photo uploaded');
-    } else {
-      const photoBase = currentManualPhoto.name.replace(/\.[^.]+$/, '');
-      if (normalizeNameKey(name) !== normalizeNameKey(photoBase)) {
-        issues.push('filename doesn\'t match Full Name');
+    if (!isCallingCard) {
+      if (!currentManualPhoto) {
+        issues.push('no photo uploaded');
+      } else {
+        const photoBase = currentManualPhoto.name.replace(/\.[^.]+$/, '');
+        if (normalizeNameKey(name) !== normalizeNameKey(photoBase)) {
+          issues.push('filename doesn\'t match Full Name');
+        }
       }
     }
     if (issues.length) {
@@ -1606,12 +2476,24 @@
       document.getElementById('manualMode').classList.add('fields-locked');
       return;
     }
-    setError('');
-    commitEmployee(name, position, dept, division, birthday, years, dateHired);
+    setError(''); setManualError('');
+    const mobileExtras = [...document.querySelectorAll('.extra-number-input')].map(el => el.value.trim()).filter(Boolean);
+    const allMobiles = [mobile, ...mobileExtras].filter(Boolean).map(m => '+63' + m).join(' / ');
+    commitEmployee(name, position, dept, division, birthday, years, dateHired, email, allMobiles, employeeNumber ? 'MTC-' + employeeNumber : '', address, phoneNumber ? '+63' + phoneNumber : '', philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber ? '+63' + contactNumber : '');
   }
 
-  function commitEmployee(name, position, dept, division, birthday, years, dateHired) {
-    manualEmployees.push({ fullName: name, position, department: dept, division: division || '', birthdayDate: birthday || '', anniversaryYears: years || '', dateHired: dateHired || '', photoFile: currentManualPhoto });
+  function commitEmployee(name, position, dept, division, birthday, years, dateHired, email, mobile, employeeNumber, address, phoneNumber, philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber) {
+    manualEmployees.push({
+      fullName: name, position,
+      department: dept, division: division || '',
+      birthdayDate: birthday || '', anniversaryYears: years || '', dateHired: dateHired || '',
+      email: email || '', mobile: mobile || '',
+      employeeNumber: employeeNumber || '', address: address || '', phoneNumber: phoneNumber || '',
+      philhealth: philhealth || '', sss: sss || '', tin: tin || '', hdmf: hdmf || '',
+      contactName: contactName || '', contactAddress: contactAddress || '', contactNumber: contactNumber || '',
+      photoFile: currentManualPhoto,
+      signatureFile: currentManualSignature,
+    });
     renderManualList();
     document.getElementById('manualName').value = '';
     document.getElementById('manualPosition').value = '';
@@ -1620,6 +2502,21 @@
     document.getElementById('manualBirthday').value = '';
     document.getElementById('manualYears').value = '';
     document.getElementById('manualDateHired').value = '';
+    document.getElementById('manualEmail').value = '';
+    document.getElementById('manualMobile').value = '';
+    document.getElementById('extraNumbersList').innerHTML = '';
+    document.getElementById('manualEmployeeNumber').value = '';
+    document.getElementById('manualAddress').value = '';
+    document.getElementById('manualPhoneNumber').value = '';
+    document.getElementById('manualPhilhealth').value = '';
+    document.getElementById('manualSss').value = '';
+    document.getElementById('manualTin').value = '';
+    document.getElementById('manualHdmf').value = '';
+    document.getElementById('manualContactName').value = '';
+    document.getElementById('manualContactAddress').value = '';
+    document.getElementById('manualContactNumber').value = '';
+    document.getElementById('manualQrPreview').style.display = 'none';
+    const _qrph2 = document.getElementById('qrPlaceholder'); if (_qrph2) _qrph2.style.display = 'flex';
     document.getElementById('birthdaySpellingHint').style.display = 'none';
     document.getElementById('dateHiredSpellingHint').style.display = 'none';
     currentManualPhoto = null;
@@ -1627,6 +2524,10 @@
     document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
     document.getElementById('manualPhotoZone').classList.remove('has-file');
     document.getElementById('photoMatchHint').style.display = 'none';
+    currentManualSignature = null;
+    document.getElementById('manualSignatureInput').value = '';
+    document.getElementById('manualSignatureLabel').textContent = 'Click to upload signature PNG (optional)';
+    document.getElementById('manualSignatureZone').classList.remove('has-file');
     hideDeptConfirm();
     updateUploadBtn();
     document.getElementById('manualName').focus();
@@ -1639,15 +2540,29 @@
   }
 
   document.getElementById('deptConfirmYes').addEventListener('click', () => {
-    const name = document.getElementById('manualName').value.trim();
-    const position = document.getElementById('manualPosition').value.trim();
-    const dept = document.getElementById('manualDept').value.trim();
-    const division = document.getElementById('manualDivision').value.trim();
-    const birthday = document.getElementById('manualBirthday').value.trim();
-    const years = document.getElementById('manualYears').value.trim();
+    const name      = document.getElementById('manualName').value.trim();
+    const position  = document.getElementById('manualPosition').value.trim();
+    const dept      = document.getElementById('manualDept').value.trim();
+    const division  = document.getElementById('manualDivision').value.trim();
+    const birthday  = document.getElementById('manualBirthday').value.trim();
+    const years     = document.getElementById('manualYears').value.trim();
     const dateHired = document.getElementById('manualDateHired').value.trim();
-    setError('');
-    commitEmployee(name, position, dept, division, birthday, years, dateHired);
+    const email     = document.getElementById('manualEmail').value.trim();
+    const mobileMain2   = document.getElementById('manualMobile').value.trim();
+    const mobileExtras2 = [...document.querySelectorAll('.extra-number-input')].map(el => el.value.trim()).filter(Boolean);
+    const allMobiles2   = [mobileMain2, ...mobileExtras2].filter(Boolean).map(m => '+63' + m).join(' / ');
+    const employeeNumber  = document.getElementById('manualEmployeeNumber').value.trim();
+    const address         = document.getElementById('manualAddress').value.trim();
+    const phoneNumber     = document.getElementById('manualPhoneNumber').value.trim();
+    const philhealth      = document.getElementById('manualPhilhealth').value.trim();
+    const sss             = document.getElementById('manualSss').value.trim();
+    const tin             = document.getElementById('manualTin').value.trim();
+    const hdmf            = document.getElementById('manualHdmf').value.trim();
+    const contactName     = document.getElementById('manualContactName').value.trim();
+    const contactAddress  = document.getElementById('manualContactAddress').value.trim();
+    const contactNumber   = document.getElementById('manualContactNumber').value.trim();
+    setError(''); setManualError('');
+    commitEmployee(name, position, dept, division, birthday, years, dateHired, email, allMobiles2, employeeNumber ? 'MTC-' + employeeNumber : '', address, phoneNumber ? '+63' + phoneNumber : '', philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber ? '+63' + contactNumber : '');
   });
 
   document.getElementById('deptConfirmNo').addEventListener('click', () => {
@@ -1664,9 +2579,15 @@
       item.innerHTML = `
         <div class="manual-item-info">
           <div class="manual-item-name">${esc(emp.fullName)}</div>
-          <div class="manual-item-detail">${emp.anniversaryYears ? esc(emp.anniversaryYears) + ' yr' + (parseInt(emp.anniversaryYears) !== 1 ? 's' : '') + ' · ' : ''}${esc(emp.position)} · ${esc(emp.department)}${emp.division ? ' · ' + esc(emp.division) : ''}</div>
+          <div class="manual-item-detail">${
+            selectedTemplate === 'calling-card'
+              ? esc(emp.position) + (emp.email ? ' · ' + esc(emp.email) : '') + (emp.mobile ? ' · ' + esc(emp.mobile) : '')
+              : selectedTemplate === 'multisys-id'
+                ? esc(emp.position) + (emp.employeeNumber ? ' · ' + esc(emp.employeeNumber) : '')
+                : (emp.anniversaryYears ? esc(emp.anniversaryYears) + ' yr' + (parseInt(emp.anniversaryYears) !== 1 ? 's' : '') + ' · ' : '') + esc(emp.position) + ' · ' + esc(emp.department) + (emp.division ? ' · ' + esc(emp.division) : '')
+          }</div>
         </div>
-        <span class="manual-item-photo ${emp.photoFile ? 'has' : 'none'}">${emp.photoFile ? '✓ Photo' : 'No photo'}</span>
+        ${selectedTemplate !== 'calling-card' ? `<span class="manual-item-photo ${emp.photoFile ? 'has' : 'none'}">${emp.photoFile ? '✓ Photo' : 'No photo'}</span>` : ''}
         <button class="btn-icon edit" title="Edit">✎</button>
         <button class="btn-icon" title="Remove">×</button>`;
 
@@ -1682,6 +2603,18 @@
             birthdayDate: document.getElementById('manualBirthday').value.trim(),
             anniversaryYears: document.getElementById('manualYears').value.trim(),
             dateHired: document.getElementById('manualDateHired').value.trim(),
+            email: document.getElementById('manualEmail').value.trim(),
+            mobile: (function(){ const v = document.getElementById('manualMobile').value.trim(); return v ? '+63' + v : ''; })(),
+            employeeNumber: document.getElementById('manualEmployeeNumber').value.trim(),
+            address: document.getElementById('manualAddress').value.trim(),
+            phoneNumber: document.getElementById('manualPhoneNumber').value.trim(),
+            philhealth: document.getElementById('manualPhilhealth').value.trim(),
+            sss: document.getElementById('manualSss').value.trim(),
+            tin: document.getElementById('manualTin').value.trim(),
+            hdmf: document.getElementById('manualHdmf').value.trim(),
+            contactName: document.getElementById('manualContactName').value.trim(),
+            contactAddress: document.getElementById('manualContactAddress').value.trim(),
+            contactNumber: document.getElementById('manualContactNumber').value.trim(),
             photoFile: currentManualPhoto
           });
           hideDeptConfirm();
@@ -1695,6 +2628,18 @@
         document.getElementById('manualBirthday').value = e.birthdayDate || '';
         document.getElementById('manualYears').value = e.anniversaryYears || '';
         document.getElementById('manualDateHired').value = e.dateHired || '';
+        document.getElementById('manualEmail').value = e.email || '';
+        document.getElementById('manualMobile').value = (e.mobile || '').replace(/^\+63/, '');
+        document.getElementById('manualEmployeeNumber').value = e.employeeNumber || '';
+        document.getElementById('manualAddress').value = e.address || '';
+        document.getElementById('manualPhoneNumber').value = e.phoneNumber || '';
+        document.getElementById('manualPhilhealth').value = e.philhealth || '';
+        document.getElementById('manualSss').value = e.sss || '';
+        document.getElementById('manualTin').value = e.tin || '';
+        document.getElementById('manualHdmf').value = e.hdmf || '';
+        document.getElementById('manualContactName').value = e.contactName || '';
+        document.getElementById('manualContactAddress').value = e.contactAddress || '';
+        document.getElementById('manualContactNumber').value = e.contactNumber || '';
         currentManualPhoto = e.photoFile;
         const label = document.getElementById('manualPhotoLabel');
         const zone = document.getElementById('manualPhotoZone');
@@ -1729,27 +2674,32 @@
     if (activeMode === 'csv') {
       form.append('csv', csvFile);
       photoFiles.forEach(f => form.append('photos', f));
+      signatureFiles.forEach(f => form.append('signatures', f));
     } else {
-      const isBirthday = selectedTemplate === 'birthday';
-      const isAnniversary = selectedTemplate === 'anniversary';
-      const header = isBirthday
-        ? 'Birthday,Full Name,Position,Division,Department'
-        : isAnniversary
-          ? 'Date Hired,Years,Full Name,Position,Division,Department'
-          : 'Full Name,Position,Department';
+      const isBirthday       = selectedTemplate === 'birthday';
+      const isAnniversary    = selectedTemplate === 'anniversary';
+      const isCallingCard    = selectedTemplate === 'calling-card';
+      const isMultisysId     = selectedTemplate === 'multisys-id';
+      const header = isBirthday       ? 'Birthday,Full Name,Position,Division,Department'
+                   : isAnniversary    ? 'Date Hired,Years,Full Name,Position,Division,Department'
+                   : isCallingCard    ? 'Full Name,Position,Email,Contact Number'
+                   : isMultisysId     ? 'Employee Number,Full Name,Position,Address,Phone Number,SSS Number,TIN,Pag-ibig,PhilHealth Number,Emergency Contact Name,Emergency Contact Address,Emergency Contact Number'
+                   : 'Full Name,Position,Department';
       const q = s => `"${(s || '').replace(/"/g, '""')}"`;
       const csvContent = header + '\n' +
         manualEmployees.map(e =>
-          isBirthday
-            ? `${q(e.birthdayDate)},${q(e.fullName)},${q(e.position)},${q(e.department)},${q(e.division)}`
-            : isAnniversary
-              ? `${q(e.dateHired||'')},${q(e.anniversaryYears)},${q(e.fullName)},${q(e.position)},${q(e.division)},${q(e.department)}`
-              : `${q(e.fullName)},${q(e.position)},${q(e.department)}`
+          isBirthday    ? `${q(e.birthdayDate)},${q(e.fullName)},${q(e.position)},${q(e.department)},${q(e.division)}`
+          : isAnniversary ? `${q(e.dateHired||'')},${q(e.anniversaryYears)},${q(e.fullName)},${q(e.position)},${q(e.division)},${q(e.department)}`
+          : isCallingCard ? `${q(e.fullName)},${q(e.position)},${q(e.email||'')},${q(e.mobile||'')}`
+          : isMultisysId  ? `${q(e.employeeNumber||'')},${q(e.fullName)},${q(e.position)},${q(e.address||'')},${q(e.phoneNumber||'')},${q(e.sss||'')},${q(e.tin||'')},${q(e.hdmf||'')},${q(e.philhealth||'')},${q(e.contactName||'')},${q(e.contactAddress||'')},${q(e.contactNumber||'')}`
+          : `${q(e.fullName)},${q(e.position)},${q(e.department)}`
         ).join('\n');
       form.append('csv', new Blob([csvContent], { type: 'text/csv' }), 'employees.csv');
       manualEmployees.forEach(e => {
         if (e.photoFile)
           form.append('photos', new File([e.photoFile], `${e.fullName}.png`, { type: e.photoFile.type }));
+        if (e.signatureFile)
+          form.append('signatures', new File([e.signatureFile], `${e.fullName}.png`, { type: e.signatureFile.type }));
       });
     }
     return form;
@@ -1763,6 +2713,7 @@
     currentEmployees = data.employees;
     renderPreview(data.employees);
     renderPreviewSummary(data.employees);
+    renderPhotoList();
     return data;
   }
 
@@ -1772,7 +2723,7 @@
     const btn = document.getElementById('uploadBtn');
     const bar = document.getElementById('uploadProgressBar');
     btn.disabled = true;
-    btn.textContent = 'Uploading...';
+    btn.innerHTML = '<span class="btn-spinner"></span> Preparing…';
     bar.classList.add('active');
     try {
       await submitPrepare();
@@ -1788,6 +2739,15 @@
 
   function renderPreviewSummary(employees) {
     const el = document.getElementById('previewSummary');
+    const style = 'display:block;font-size:13px;padding:12px 16px;background:#1c1c1c;border:1px solid #262626;border-radius:10px;line-height:1.8;margin-bottom:16px';
+
+    if (selectedTemplate === 'calling-card') {
+      const label = `${employees.length} calling card${employees.length !== 1 ? 's' : ''}`;
+      el.innerHTML = `<span style="color:#22c55e">✓ ${label} ready to generate — no photos required</span>`;
+      el.style.cssText = style;
+      return;
+    }
+
     const missingEmployees = employees.filter(e => !e.photoFound);
     const empKeys = new Set(employees.map(e => normalizeNameKey(e.fullName)));
     const orphanPhotos = activeMode === 'csv'
@@ -1820,45 +2780,51 @@
       lines.push(`<span style="color:#22c55e">✓ All ${employees.length} employee${employees.length !== 1 ? 's' : ''} have matching photos</span>`);
 
     el.innerHTML = lines.join('');
-    el.style.cssText = 'display:block;font-size:13px;padding:12px 16px;background:#1c1c1c;border:1px solid #262626;border-radius:10px;line-height:1.8;margin-bottom:16px';
+    el.style.cssText = style;
   }
 
   function renderPreview(employees) {
-    const hasMissing = employees.some(e => !e.photoFound);
-    const noneHavePhoto = employees.every(e => !e.photoFound);
-    const isBirthday = selectedTemplate === 'birthday';
-    const isAnniversary = selectedTemplate === 'anniversary';
-    const needsDivision = isBirthday || isAnniversary;
-    document.getElementById('generateBtn').disabled = noneHavePhoto;
+    const isCallingCard    = selectedTemplate === 'calling-card';
+    const isMultisysId     = selectedTemplate === 'multisys-id';
+    const noPhotoTpl       = isCallingCard;
+    const hasMissing       = employees.some(e => !e.photoFound);
+    const noneHavePhoto    = employees.every(e => !e.photoFound);
+    const isBirthday       = selectedTemplate === 'birthday';
+    const isAnniversary    = selectedTemplate === 'anniversary';
+    const needsDivision    = isBirthday || isAnniversary;
+    document.getElementById('generateBtn').disabled = !noPhotoTpl && noneHavePhoto;
 
-    document.getElementById('thDivision').style.display = needsDivision ? '' : 'none';
-    document.getElementById('thBirthday').style.display = isBirthday ? '' : 'none';
-    document.getElementById('thYears').style.display = isAnniversary ? '' : 'none';
-    document.getElementById('thDateHired').style.display = isAnniversary ? '' : 'none';
-    const thUpload = document.querySelector('.preview-table thead tr th:last-child');
-    if (thUpload) thUpload.style.display = hasMissing ? '' : 'none';
+    document.getElementById('thDepartment').style.display     = (isCallingCard || isMultisysId) ? 'none' : '';
+    document.getElementById('thDivision').style.display       = needsDivision ? '' : 'none';
+    document.getElementById('thBirthday').style.display       = isBirthday ? '' : 'none';
+    document.getElementById('thYears').style.display          = isAnniversary ? '' : 'none';
+    document.getElementById('thDateHired').style.display      = isAnniversary ? '' : 'none';
+    document.getElementById('thEmail').style.display          = isCallingCard ? '' : 'none';
+    document.getElementById('thMobile').style.display         = isCallingCard ? '' : 'none';
+    document.getElementById('thEmployeeNumber').style.display = isMultisysId ? '' : 'none';
+    document.getElementById('thPhoto').style.display          = noPhotoTpl ? 'none' : '';
+    document.getElementById('thSignature').style.display      = isMultisysId ? '' : 'none';
+    document.getElementById('thUpload').style.display         = (!noPhotoTpl && hasMissing) ? '' : 'none';
 
     const tbody = document.getElementById('previewBody');
     tbody.innerHTML = '';
     employees.forEach(emp => {
       const tr = document.createElement('tr');
-      if (!emp.photoFound) tr.className = 'photo-missing';
+      if (!isCallingCard && !emp.photoFound) tr.className = 'photo-missing';
       tr.innerHTML = `
         <td>${esc(emp.fullName)}</td>
         <td style="color:#999">${esc(emp.position)}</td>
-        <td style="color:#999">${esc(emp.department)}</td>
+        ${!isCallingCard && !isMultisysId ? `<td style="color:#999">${esc(emp.department||'')}</td>` : ''}
         ${needsDivision ? `<td style="color:#999">${esc(emp.division || '')}</td>` : ''}
         ${isBirthday ? `<td style="color:#999;white-space:nowrap">${esc(emp.birthdayDate || '')}</td>` : ''}
         ${isAnniversary ? `<td style="color:#999">${esc(emp.anniversaryYears || '')}</td>` : ''}
         ${isAnniversary ? `<td style="color:#999;white-space:nowrap">${esc(emp.dateHired || '')}</td>` : ''}
-        <td><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">
-          ${emp.photoFound ? '✓ Found' : '✗ Missing'}
-        </span></td>
-        ${hasMissing ? `<td>${!emp.photoFound ? `<label class="upload-inline">
-          ↑ Upload Photo
-          <input type="file" accept=".png" />
-        </label>` : ''}</td>` : ''}`;
-      if (!emp.photoFound) {
+        ${isCallingCard ? `<td style="color:#999">${esc(emp.email||'')}</td><td style="color:#999">${esc(emp.mobile||'')}</td>` : ''}
+        ${isMultisysId ? `<td style="color:#999">${esc(emp.employeeNumber||'')}</td>` : ''}
+        ${!isCallingCard ? `<td><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">${emp.photoFound ? '✓ Found' : '✗ Missing'}</span></td>` : ''}
+        ${isMultisysId ? `<td><span class="match-badge ${emp.signatureFound ? 'found' : 'missing'}">${emp.signatureFound ? '✓ Found' : '✗ Missing'}</span></td>` : ''}
+        ${!isCallingCard && hasMissing ? `<td>${!emp.photoFound ? `<label class="upload-inline">↑ Upload Photo<input type="file" accept=".png" /></label>` : ''}</td>` : ''}`;
+      if (!isCallingCard && !emp.photoFound) {
         tr.querySelector('input[type="file"]').addEventListener('change', async function () {
           const file = this.files[0];
           if (!file) return;
@@ -1868,7 +2834,15 @@
           const renamed = new File([file], `${emp.fullName}.png`, { type: file.type });
           if (activeMode === 'csv') {
             const key = normalizeNameKey(emp.fullName);
-            photoFiles = photoFiles.filter(f => normalizeNameKey(f.name.replace(/\.[^.]+$/, '')) !== key);
+            const empTokens = key.split(' ');
+            photoFiles = photoFiles.filter(f => {
+              const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
+              if (fKey === key) return false;
+              // Also remove partial-name files whose tokens are all contained in this employee's name
+              const fTokens = fKey.split(' ');
+              if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
+              return true;
+            });
             photoFiles.push(renamed);
             updatePhotoZone();
           } else {
@@ -2012,6 +2986,10 @@
         }
 
         showGallery(jobId, event.count);
+        if (_isDev) try {
+          localStorage.setItem('devLastJob', JSON.stringify({ jobId, count: event.count, employees: currentEmployees, template: selectedTemplate }));
+          document.getElementById('devReloadWrap').style.display = '';
+        } catch(e) {}
 
       } else if (event.type === 'error') {
         evtSource.close();
@@ -2030,33 +3008,90 @@
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
 
+    if (count === 0) {
+      gallery.className = 'gallery';
+      gallery.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px 24px">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 16px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <p style="font-size:15px;color:#fff;font-weight:500;margin-bottom:8px">No posters generated</p>
+        <p style="font-size:13px;color:#888;line-height:1.65;margin-bottom:24px">All employees were skipped — check that photo filenames match employee names, then go back and try again.</p>
+        <button class="btn btn-secondary" onclick="goToStep(1)" style="display:inline-flex;margin:0 auto">← Back to Upload</button>
+      </div>`;
+      document.getElementById('doneCount').textContent = '0 posters generated';
+      document.getElementById('gallerySection').style.display = 'block';
+      return;
+    }
+
+    const isMultisysId = selectedTemplate === 'multisys-id';
+    const isCallingCard = selectedTemplate === 'calling-card';
+    const isPaired = isMultisysId || isCallingCard;
+    gallery.className = isPaired
+      ? ('gallery gallery--id-pairs' + (isCallingCard ? ' gallery--cc-pairs' : ''))
+      : 'gallery';
+
     document.getElementById('doneCount').textContent =
       `${count} poster${count !== 1 ? 's' : ''} ready`;
 
-    // Use currentEmployees with photos — maps 1:1 to server's job.posters array
+    // photoEmployees maps 1:1 to employees; for paired templates each has 2 posters (front=2i, back=2i+1)
     const photoEmployees = currentEmployees.filter(e => e.photoFound);
-    lightboxEmployees = photoEmployees;
-    photoEmployees.forEach((emp, index) => {
+    lightboxEmployees = isPaired
+      ? photoEmployees.flatMap(e => [e, { ...e, fullName: e.fullName + (isMultisysId ? ' — Back Card' : ' — Back') }])
+      : photoEmployees;
+
+    photoEmployees.forEach((emp, empIdx) => {
       const name = emp.fullName;
-      const item = document.createElement('div');
-      item.className = 'gallery-item';
-      item.innerHTML = `
-        <img src="/preview/${jobId}/${index}" alt="${esc(name)}" loading="lazy" />
-        <div class="gallery-footer">
-          <div class="gallery-label">${esc(name)}</div>
-          <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
-          <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${index}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>
-        </div>`;
-      const galleryImg = item.querySelector('img');
-      galleryImg.setAttribute('tabindex', '0');
-      galleryImg.setAttribute('role', 'button');
-      galleryImg.setAttribute('aria-label', `View poster for ${esc(name)}`);
-      galleryImg.addEventListener('click', () => openLightbox(index));
-      galleryImg.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(index); }
-      });
-      item.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(index, emp); });
-      gallery.appendChild(item);
+      const frontIdx = isPaired ? empIdx * 2 : empIdx;
+
+      if (isPaired) {
+        const backIdx = frontIdx + 1;
+        const pair = document.createElement('div');
+        pair.className = 'gallery-id-pair';
+        const frontLabel = isMultisysId ? 'View front ID' : 'View front';
+        const backLabel  = isMultisysId ? 'View back ID'  : 'View back';
+        const saveBtn = (isMultisysId || isCallingCard)
+          ? `<a class="btn btn-secondary gallery-dl" href="/download-pdf/${jobId}/${empIdx}" download="${esc(name)}-${isMultisysId ? 'Multisys ID' : 'Calling Card'}.pdf">↓ Save PDF</a>`
+          : `<a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>`;
+        pair.innerHTML = `
+          <div class="gallery-id-sides">
+            <div class="gallery-id-side" tabindex="0" role="button" aria-label="${frontLabel} for ${esc(name)}">
+              <img src="/preview/${jobId}/${frontIdx}" alt="${esc(name)} — front" loading="lazy" />
+            </div>
+            <div class="gallery-id-side" tabindex="0" role="button" aria-label="${backLabel} for ${esc(name)}">
+              <img src="/preview/${jobId}/${backIdx}" alt="${esc(name)} — back" loading="lazy" />
+            </div>
+          </div>
+          <div class="gallery-footer">
+            <div class="gallery-label">${esc(name)}</div>
+            <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
+            ${saveBtn}
+          </div>`;
+        const sides = pair.querySelectorAll('.gallery-id-side');
+        sides[0].addEventListener('click', () => openLightbox(frontIdx));
+        sides[0].addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(frontIdx); } });
+        sides[1].addEventListener('click', () => openLightbox(backIdx));
+        sides[1].addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(backIdx); } });
+        pair.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(frontIdx, emp); });
+        gallery.appendChild(pair);
+      } else {
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+        item.innerHTML = `
+          <img src="/preview/${jobId}/${frontIdx}" alt="${esc(name)}" loading="lazy" />
+          <div class="gallery-footer">
+            <div class="gallery-label">${esc(name)}</div>
+            <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
+            <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>
+          </div>`;
+        const galleryImg = item.querySelector('img');
+        galleryImg.setAttribute('tabindex', '0');
+        galleryImg.setAttribute('role', 'button');
+        galleryImg.setAttribute('aria-label', `View poster for ${esc(name)}`);
+        galleryImg.addEventListener('click', () => openLightbox(frontIdx));
+        galleryImg.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(frontIdx); }
+        });
+        item.querySelector('.gallery-edit-btn').addEventListener('click', e => { e.stopPropagation(); openEditModal(frontIdx, emp); });
+        gallery.appendChild(item);
+      }
     });
 
     document.getElementById('gallerySection').style.display = 'block';
@@ -2067,10 +3102,90 @@
   let lightboxEmployees = [];
   let lightboxTriggerEl = null;
 
+  // QR lightbox
+  let currentQrMobile = '';
+  function openQrLightbox(mobile, label) {
+    currentQrMobile = mobile;
+    document.getElementById('qrLightboxImg').src = '/qr-preview?mobile=' + encodeURIComponent(mobile) + '&size=400';
+    document.getElementById('qrLightboxLabel').textContent = label || '';
+    document.getElementById('qrLightbox').classList.add('open');
+    document.getElementById('qrLightboxClose').focus();
+  }
+  function closeQrLightbox() {
+    document.getElementById('qrLightbox').classList.remove('open');
+  }
+  function downloadQr(mobile, filename) {
+    const size = 600;
+    const qrUrl = '/qr-preview?mobile=' + encodeURIComponent(mobile) + '&size=' + size;
+    const logoUrl = '/msys-bars-logo.png';
+    const qrImg = new Image(); qrImg.crossOrigin = 'anonymous';
+    const logoImg = new Image(); logoImg.crossOrigin = 'anonymous';
+    let loaded = 0;
+    function onLoad() {
+      if (++loaded < 2) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(qrImg, 0, 0, size, size);
+      // Centre logo: keep natural portrait proportions, scale to ~30% of QR height
+      const logoH = Math.round(size * 0.225);
+      const logoW = Math.round(logoH * (logoImg.naturalWidth / logoImg.naturalHeight));
+      const lx = Math.round((size - logoW) / 2);
+      const ly = Math.round((size - logoH) / 2);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.drawImage(logoImg, lx, ly, logoW, logoH);
+      ctx.globalCompositeOperation = 'source-over';
+      canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename || 'qr-code.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, 'image/png');
+    }
+    qrImg.onload = onLoad; logoImg.onload = onLoad;
+    qrImg.src = qrUrl; logoImg.src = logoUrl;
+  }
+  document.getElementById('qrDownloadBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const mobile = document.getElementById('manualMobile').value.trim();
+    if (mobile) downloadQr('+63' + mobile, 'qr-' + mobile + '.png');
+  });
+  document.getElementById('qrLightboxDownloadBtn').addEventListener('click', () => {
+    if (currentQrMobile) downloadQr(currentQrMobile, 'qr-' + currentQrMobile.replace(/\D/g,'') + '.png');
+  });
+  document.getElementById('qrLightboxClose').addEventListener('click', closeQrLightbox);
+  document.getElementById('qrLightbox').addEventListener('click', e => {
+    if (e.target === document.getElementById('qrLightbox')) closeQrLightbox();
+  });
+  document.getElementById('manualQrPreview').querySelector('div').addEventListener('click', () => {
+    const mobile = document.getElementById('manualMobile').value.trim();
+    if (mobile) openQrLightbox('+63' + mobile, 'tel:+63' + mobile);
+  });
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('qrLightbox').classList.contains('open') && e.key === 'Escape') closeQrLightbox();
+  });
+
   document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
   document.getElementById('lightbox').addEventListener('click', e => {
     if (e.target === document.getElementById('lightbox')) closeLightbox();
   });
+
+  // Lightbox swipe gestures (mobile)
+  let _lbTouchStartX = 0, _lbTouchStartY = 0;
+  document.getElementById('lightbox').addEventListener('touchstart', e => {
+    _lbTouchStartX = e.changedTouches[0].clientX;
+    _lbTouchStartY = e.changedTouches[0].clientY;
+  }, { passive: true });
+  document.getElementById('lightbox').addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - _lbTouchStartX;
+    const dy = e.changedTouches[0].clientY - _lbTouchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      navigateLightbox(dx < 0 ? 1 : -1);
+    } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
+      closeLightbox();
+    }
+  }, { passive: true });
   document.getElementById('lightboxPrev').addEventListener('click', e => { e.stopPropagation(); navigateLightbox(-1); });
   document.getElementById('lightboxNext').addEventListener('click', e => { e.stopPropagation(); navigateLightbox(1); });
   document.addEventListener('keydown', e => {
@@ -2110,9 +3225,13 @@
   }
 
   function closeLightbox() {
-    document.getElementById('lightbox').classList.remove('open');
-    document.getElementById('lightboxImg').src = '';
-    if (lightboxTriggerEl) { lightboxTriggerEl.focus(); lightboxTriggerEl = null; }
+    const lb = document.getElementById('lightbox');
+    lb.classList.add('closing');
+    lb.addEventListener('animationend', () => {
+      lb.classList.remove('open', 'closing');
+      document.getElementById('lightboxImg').src = '';
+      if (lightboxTriggerEl) { lightboxTriggerEl.focus(); lightboxTriggerEl = null; }
+    }, { once: true });
   }
 
   // Download
@@ -2134,14 +3253,56 @@
     goToStep(1);
   });
 
-  function goToStep(n) {
-    document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i + 1 === n));
+  // ── Step management ──────────────────────────────────────────────────────────
+
+  function updateStepIndicator(n) {
+    [1, 2, 3].forEach(i => {
+      const dot  = document.getElementById('sdot'  + i);
+      const line = document.getElementById('sline' + i);
+      if (dot)  dot.className  = 'step-dot'  + (i < n ? ' done' : (i === n ? ' active' : ''));
+      if (line) line.className = 'step-line' + (i < n ? ' done' : '');
+    });
+    const lbl = document.getElementById('stepLabel');
+    if (lbl) { lbl.textContent = `Step ${n} of 3`; lbl.style.color = n === 3 ? '#22c55e' : '#888'; }
   }
+
+  function goToStep(n, skipHistory) {
+    document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i + 1 === n));
+    updateStepIndicator(n);
+    if (!skipHistory) history.pushState({ step: n }, '');
+  }
+
+  // Browser back/forward navigation through wizard steps
+  history.replaceState({ step: 1 }, '');
+  window.addEventListener('popstate', e => goToStep(e.state?.step ?? 1, true));
 
   function setError(msg) {
     const b = document.getElementById('errorBanner');
     b.textContent = msg;
+    b.style.background = '';
+    b.style.borderColor = '';
+    b.style.color = '';
     b.classList.toggle('show', !!msg);
+  }
+  let _successTimer = null;
+  function showSuccess(msg) {
+    const b = document.getElementById('errorBanner');
+    b.textContent = msg;
+    b.style.background = '#22c55e1a';
+    b.style.borderColor = '#22c55e33';
+    b.style.color = '#22c55e';
+    b.classList.add('show');
+    clearTimeout(_successTimer);
+    _successTimer = setTimeout(() => {
+      b.classList.remove('show');
+      b.style.background = '';
+      b.style.borderColor = '';
+      b.style.color = '';
+    }, 2500);
+  }
+  function setManualError(msg) {
+    document.getElementById('manualErrorText').textContent = msg;
+    document.getElementById('manualErrorBanner').style.display = msg ? 'block' : 'none';
   }
 
   function getFileSuffix() {
@@ -2149,6 +3310,8 @@
       'tpl-new-employee': 'New Employee Poster',
       'tpl-birthday':     'Birthday Poster',
       'tpl-anniversary':  'Work Anniversary Poster',
+      'tpl-calling-card':  'Calling Card',
+      'tpl-multisys-id':   'Multisys ID',
     };
     const active = document.querySelector('.template-option.active');
     const cls = active && Array.from(active.classList).find(c => c.startsWith('tpl-'));
@@ -2172,63 +3335,156 @@
   let editIndex = -1;
   let editOriginalName = '';
   let editPhotoFile = null;
+  let editSignatureFile = null;
   let editSnapshot = {};
+  let _editModalTrigger = null;
 
   function captureEditSnapshot() {
     editSnapshot = {
-      name:       document.getElementById('editName').value,
-      position:   document.getElementById('editPosition').value,
-      division:   document.getElementById('editDivision').value,
-      dept:       document.getElementById('editDept').value,
-      birthday:   document.getElementById('editBirthday').value,
-      years:      document.getElementById('editYears').value,
-      dateHired:  document.getElementById('editDateHired').value,
+      name:          document.getElementById('editName').value,
+      firstName:     document.getElementById('editFirstName').value,
+      lastName:      document.getElementById('editLastName').value,
+      position:      document.getElementById('editPosition').value,
+      division:      document.getElementById('editDivision').value,
+      dept:          document.getElementById('editDept').value,
+      birthday:      document.getElementById('editBirthday').value,
+      years:         document.getElementById('editYears').value,
+      dateHired:     document.getElementById('editDateHired').value,
+      email:         document.getElementById('editEmail').value,
+      mobile:        document.getElementById('editMobile').value,
+      employeeNumber: document.getElementById('editEmployeeNumber').value,
+      address:       document.getElementById('editAddress').value,
+      phoneNumber:   document.getElementById('editPhoneNumber').value,
+      philhealth:    document.getElementById('editPhilhealth').value,
+      sss:           document.getElementById('editSss').value,
+      tin:           document.getElementById('editTin').value,
+      hdmf:          document.getElementById('editHdmf').value,
+      contactName:   document.getElementById('editContactName').value,
+      contactAddress: document.getElementById('editContactAddress').value,
+      contactNumber: document.getElementById('editContactNumber').value,
     };
   }
 
   function checkEditChanged() {
-    const name      = document.getElementById('editName').value.trim();
+    const isIdEdit  = selectedTemplate === 'multisys-id';
+    const name      = isIdEdit
+      ? [document.getElementById('editFirstName').value.trim(), document.getElementById('editLastName').value.trim()].filter(Boolean).join(' ')
+      : document.getElementById('editName').value.trim();
     const position  = document.getElementById('editPosition').value.trim();
     const years     = document.getElementById('editYears').value.trim();
     const birthday  = document.getElementById('editBirthday').value.trim();
     const dateHired = document.getElementById('editDateHired').value.trim();
+    const email     = document.getElementById('editEmail').value.trim();
+    const mobile    = document.getElementById('editMobile').value.trim();
+
+    const empNum        = document.getElementById('editEmployeeNumber').value.trim();
+    const editAddress   = document.getElementById('editAddress').value.trim();
+    const editPhoneNum  = document.getElementById('editPhoneNumber').value.trim();
+    const editPH        = document.getElementById('editPhilhealth').value.trim();
+    const editSssVal    = document.getElementById('editSss').value.trim();
+    const editTinVal    = document.getElementById('editTin').value.trim();
+    const editHdmfVal   = document.getElementById('editHdmf').value.trim();
+    const editCName     = document.getElementById('editContactName').value.trim();
+    const editCAddr     = document.getElementById('editContactAddress').value.trim();
+    const editCNum      = document.getElementById('editContactNumber').value.trim();
 
     const requiredFilled =
       !!name && !!position &&
-      (selectedTemplate !== 'anniversary' || (!!years && !!dateHired)) &&
-      (selectedTemplate !== 'birthday'    || !!birthday);
+      (selectedTemplate !== 'anniversary'  || (!!years && !!dateHired)) &&
+      (selectedTemplate !== 'birthday'     || !!birthday) &&
+      (selectedTemplate !== 'calling-card' || (!!email && !!mobile)) &&
+      (selectedTemplate !== 'multisys-id'      || (!!empNum && !!editAddress && !!editPhoneNum && !!editPH && !!editSssVal && !!editTinVal && !!editHdmfVal && !!editCName && !!editCAddr && !!editCNum)) &&
+      true;
 
     const changed =
-      document.getElementById('editName').value      !== editSnapshot.name      ||
-      document.getElementById('editPosition').value  !== editSnapshot.position  ||
-      document.getElementById('editDivision').value  !== editSnapshot.division  ||
-      document.getElementById('editDept').value      !== editSnapshot.dept      ||
-      document.getElementById('editBirthday').value  !== editSnapshot.birthday  ||
-      document.getElementById('editYears').value     !== editSnapshot.years     ||
-      document.getElementById('editDateHired').value !== editSnapshot.dateHired ||
+      (isIdEdit
+        ? (document.getElementById('editFirstName').value !== editSnapshot.firstName || document.getElementById('editLastName').value !== editSnapshot.lastName)
+        : document.getElementById('editName').value !== editSnapshot.name)                ||
+      document.getElementById('editPosition').value       !== editSnapshot.position       ||
+      document.getElementById('editDivision').value       !== editSnapshot.division       ||
+      document.getElementById('editDept').value           !== editSnapshot.dept           ||
+      document.getElementById('editBirthday').value       !== editSnapshot.birthday       ||
+      document.getElementById('editYears').value          !== editSnapshot.years          ||
+      document.getElementById('editDateHired').value      !== editSnapshot.dateHired      ||
+      document.getElementById('editEmail').value          !== editSnapshot.email          ||
+      document.getElementById('editMobile').value         !== editSnapshot.mobile         ||
+      document.getElementById('editEmployeeNumber').value !== editSnapshot.employeeNumber ||
+      document.getElementById('editAddress').value        !== editSnapshot.address        ||
+      document.getElementById('editPhoneNumber').value    !== editSnapshot.phoneNumber    ||
+      document.getElementById('editPhilhealth').value     !== editSnapshot.philhealth     ||
+      document.getElementById('editSss').value            !== editSnapshot.sss            ||
+      document.getElementById('editTin').value            !== editSnapshot.tin            ||
+      document.getElementById('editHdmf').value           !== editSnapshot.hdmf           ||
+      document.getElementById('editContactName').value    !== editSnapshot.contactName    ||
+      document.getElementById('editContactAddress').value !== editSnapshot.contactAddress ||
+      document.getElementById('editContactNumber').value  !== editSnapshot.contactNumber  ||
       !!editPhotoFile;
 
     document.getElementById('editSaveBtn').disabled = !(requiredFilled && changed);
   }
 
   function openEditModal(index, emp) {
+    _editModalTrigger = document.activeElement;
     editIndex = index;
     editOriginalName = emp.fullName;
     editPhotoFile = null;
-    document.getElementById('editName').value = emp.fullName;
+    const isCallingCard    = selectedTemplate === 'calling-card';
+    const isMultisysId     = selectedTemplate === 'multisys-id';
+    const isBirthdayEdit   = selectedTemplate === 'birthday';
+    const needsDivEdit     = isBirthdayEdit || selectedTemplate === 'anniversary';
+
+    if (isMultisysId) {
+      let firstName, lastName;
+      if (emp._editFirstName !== undefined) {
+        firstName = emp._editFirstName;
+        lastName  = emp._editLastName;
+      } else {
+        const parts = (emp.fullName || '').trim().split(/\s+/);
+        lastName  = parts.length > 1 ? parts[parts.length - 1] : '';
+        firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : (emp.fullName || '');
+      }
+      document.getElementById('editFirstName').value = firstName;
+      document.getElementById('editLastName').value  = lastName;
+    } else {
+      document.getElementById('editName').value = emp.fullName;
+    }
     document.getElementById('editPosition').value = emp.position;
-    const isBirthdayEdit = selectedTemplate === 'birthday';
-    const needsDivEdit = isBirthdayEdit || selectedTemplate === 'anniversary';
     // For birthday the CSV keys are swapped: emp.department holds Division text, emp.division holds Department text.
-    // Swap values so the correctly-labelled fields always show the right content.
-    document.getElementById('editDivision').value = isBirthdayEdit ? (emp.department || '') : (emp.division || '');
-    document.getElementById('editDept').value     = isBirthdayEdit ? (emp.division  || '') : (emp.department || '');
-    document.getElementById('editBirthday').value = emp.birthdayDate || '';
-    document.getElementById('editYears').value = emp.anniversaryYears || '';
+    document.getElementById('editDivision').value  = isBirthdayEdit ? (emp.department || '') : (emp.division || '');
+    document.getElementById('editDept').value      = isBirthdayEdit ? (emp.division  || '') : (emp.department || '');
+    document.getElementById('editBirthday').value  = emp.birthdayDate || '';
+    document.getElementById('editYears').value     = emp.anniversaryYears || '';
     document.getElementById('editDateHired').value = emp.dateHired || '';
-    document.getElementById('editDivisionField').style.display = needsDivEdit ? '' : 'none';
-    document.getElementById('editBirthdayField').style.display = isBirthdayEdit ? '' : 'none';
-    document.getElementById('editAnniversaryRow').style.display = selectedTemplate === 'anniversary' ? 'flex' : 'none';
+    document.getElementById('editEmail').value     = emp.email || '';
+    document.getElementById('editMobile').value    = (emp.mobile || '').replace(/^\+63/, '');
+    const _stripPhone = v => { const d = (v||'').replace(/\D/g,''); if(d.startsWith('63')&&d.length>=11) return d.slice(2); if(d.startsWith('0')&&d.length>=11) return d.slice(1); return d; };
+    document.getElementById('editEmployeeNumber').value  = (emp.employeeNumber || '').replace(/^MTC-/i, '');
+    document.getElementById('editAddress').value         = emp.address || '';
+    document.getElementById('editPhoneNumber').value     = _stripPhone(emp.phoneNumber);
+    document.getElementById('editPhilhealth').value      = (emp.philhealth || '').replace(/\D/g, '');
+    document.getElementById('editSss').value             = (emp.sss || '').replace(/\D/g, '');
+    document.getElementById('editTin').value             = (emp.tin || '').replace(/\D/g, '');
+    document.getElementById('editHdmf').value            = (emp.hdmf || '').replace(/\D/g, '');
+    document.getElementById('editContactName').value     = emp.contactName || '';
+    document.getElementById('editContactAddress').value  = emp.contactAddress || '';
+    document.getElementById('editContactNumber').value   = _stripPhone(emp.contactNumber);
+
+    document.getElementById('editNameField').style.display        = isMultisysId ? 'none' : '';
+    document.getElementById('editNameSplitRow').style.display    = isMultisysId ? 'flex' : 'none';
+    document.getElementById('editDeptField').style.display        = (isCallingCard || isMultisysId) ? 'none' : '';
+    document.getElementById('editDivisionField').style.display    = needsDivEdit ? '' : 'none';
+    document.getElementById('editBirthdayField').style.display    = isBirthdayEdit ? '' : 'none';
+    document.getElementById('editAnniversaryRow').style.display   = selectedTemplate === 'anniversary' ? 'flex' : 'none';
+    document.getElementById('editEmailField').style.display       = isCallingCard ? '' : 'none';
+    document.getElementById('editMobileField').style.display      = isCallingCard ? '' : 'none';
+    document.getElementById('editIdSection').style.display        = isMultisysId ? '' : 'none';
+    document.getElementById('editSignatureZone').style.display    = isMultisysId ? '' : 'none';
+    document.getElementById('editPhotoZone').style.display        = isCallingCard ? 'none' : '';
+
+    editSignatureFile = null;
+    document.getElementById('editSignatureLabel').textContent = 'Replace signature (optional)';
+    document.getElementById('editSignatureInput').value = '';
+    document.getElementById('editSignatureZone').classList.remove('has-file');
     document.getElementById('editPhotoLabel').textContent = 'Replace photo (optional)';
     document.getElementById('editPhotoInput').value = '';
     document.getElementById('editPhotoZone').classList.remove('has-file');
@@ -2239,12 +3495,18 @@
     document.getElementById('editModalOverlay').classList.add('open');
     captureEditSnapshot();
     checkEditChanged();
+    // Focus first visible input in the modal
+    const box = document.querySelector('.edit-modal-box');
+    const firstInput = box ? box.querySelector('input:not([disabled]):not([readonly])') : null;
+    if (firstInput) requestAnimationFrame(() => firstInput.focus());
   }
 
   function checkEditPhotoMatch() {
     const hint = document.getElementById('editPhotoMatchHint');
     if (!editPhotoFile) { hint.style.display = 'none'; return; }
-    const nameVal = document.getElementById('editName').value.trim();
+    const nameVal = selectedTemplate === 'multisys-id'
+      ? [document.getElementById('editFirstName').value.trim(), document.getElementById('editLastName').value.trim()].filter(Boolean).join(' ')
+      : document.getElementById('editName').value.trim();
     hint.style.display = '';
     if (!nameVal) {
       hint.className = 'photo-match-hint neutral';
@@ -2269,29 +3531,91 @@
     checkEditPhotoMatch();
     checkEditChanged();
   });
-
-  document.getElementById('editName').addEventListener('input', () => { checkEditPhotoMatch(); checkEditChanged(); });
-  ['editPosition', 'editDivision', 'editDept', 'editBirthday', 'editYears', 'editDateHired'].forEach(id =>
-    document.getElementById(id).addEventListener('input', checkEditChanged));
-
-  document.getElementById('editCancelBtn').addEventListener('click', () => {
-    document.getElementById('editModalOverlay').classList.remove('open');
+  document.getElementById('editSignatureInput').addEventListener('change', () => {
+    editSignatureFile = document.getElementById('editSignatureInput').files[0] || null;
+    document.getElementById('editSignatureLabel').textContent = editSignatureFile
+      ? `✓ ${editSignatureFile.name}` : 'Replace signature (optional)';
+    document.getElementById('editSignatureZone').classList.toggle('has-file', !!editSignatureFile);
+    checkEditChanged();
   });
 
+  document.getElementById('editName').addEventListener('input', () => { checkEditPhotoMatch(); checkEditChanged(); });
+  document.getElementById('editFirstName').addEventListener('input', () => { checkEditPhotoMatch(); checkEditChanged(); });
+  document.getElementById('editLastName').addEventListener('input', () => { checkEditPhotoMatch(); checkEditChanged(); });
+  ['editPosition', 'editDivision', 'editDept', 'editBirthday', 'editYears', 'editDateHired',
+   'editEmail', 'editEmployeeNumber', 'editAddress', 'editPhoneNumber',
+   'editPhilhealth', 'editSss', 'editTin', 'editHdmf', 'editContactName', 'editContactAddress', 'editContactNumber'].forEach(id =>
+    document.getElementById(id).addEventListener('input', checkEditChanged));
+  document.getElementById('editMobile').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '');
+    checkEditChanged();
+  });
+  ['editEmployeeNumber','editPhoneNumber','editPhilhealth','editSss','editTin','editHdmf','editContactNumber'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '');
+      checkEditChanged();
+    });
+  });
+
+  function closeEditModal() {
+    const overlay = document.getElementById('editModalOverlay');
+    overlay.classList.add('closing');
+    overlay.addEventListener('animationend', () => {
+      overlay.classList.remove('open', 'closing');
+      if (_editModalTrigger) { _editModalTrigger.focus(); _editModalTrigger = null; }
+    }, { once: true });
+  }
+
+  document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+
   document.getElementById('editModalOverlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('editModalOverlay'))
-      document.getElementById('editModalOverlay').classList.remove('open');
+    if (e.target === document.getElementById('editModalOverlay')) closeEditModal();
+  });
+
+  // Edit modal: Escape to close, Tab focus trap
+  document.getElementById('editModalOverlay').addEventListener('keydown', e => {
+    if (!document.getElementById('editModalOverlay').classList.contains('open')) return;
+    if (e.key === 'Escape') { e.stopPropagation(); closeEditModal(); return; }
+    if (e.key === 'Tab') {
+      const box = document.querySelector('.edit-modal-box');
+      const focusable = Array.from(box.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetParent !== null && getComputedStyle(el).display !== 'none');
+      if (!focusable.length) { e.preventDefault(); return; }
+      const idx = focusable.indexOf(document.activeElement);
+      e.preventDefault();
+      focusable[e.shiftKey ? (idx - 1 + focusable.length) % focusable.length : (idx + 1) % focusable.length].focus();
+    }
   });
 
   async function doRegenerate() {
     const btn = document.getElementById('editSaveBtn');
-    const newName      = document.getElementById('editName').value.trim();
-    const newPos       = document.getElementById('editPosition').value.trim();
-    const newDept      = document.getElementById('editDept').value.trim();
-    const newDiv       = document.getElementById('editDivision').value.trim();
-    const newBd        = document.getElementById('editBirthday').value.trim();
-    const newYears     = document.getElementById('editYears').value.trim();
-    const newDateHired = document.getElementById('editDateHired').value.trim();
+    const isIdRegen = selectedTemplate === 'multisys-id';
+    const newName = isIdRegen
+      ? [document.getElementById('editFirstName').value.trim(), document.getElementById('editLastName').value.trim()].filter(Boolean).join(' ')
+      : document.getElementById('editName').value.trim();
+    const newPos           = document.getElementById('editPosition').value.trim();
+    const newDept          = document.getElementById('editDept').value.trim();
+    const newDiv           = document.getElementById('editDivision').value.trim();
+    const newBd            = document.getElementById('editBirthday').value.trim();
+    const newYears         = document.getElementById('editYears').value.trim();
+    const newDateHired     = document.getElementById('editDateHired').value.trim();
+    const newEmail         = document.getElementById('editEmail').value.trim();
+    const newMobileRaw     = document.getElementById('editMobile').value.trim();
+    const newMobile        = newMobileRaw ? '+63' + newMobileRaw : '';
+    const _empNumRaw       = document.getElementById('editEmployeeNumber').value.trim();
+    const newEmpNum        = _empNumRaw ? 'MTC-' + _empNumRaw : '';
+    const newAddress       = document.getElementById('editAddress').value.trim();
+    const _phoneNumRaw     = document.getElementById('editPhoneNumber').value.trim();
+    const newPhoneNumber   = _phoneNumRaw ? '+63' + _phoneNumRaw : '';
+    const newPhilhealth    = document.getElementById('editPhilhealth').value.trim();
+    const newSss           = document.getElementById('editSss').value.trim();
+    const newTin           = document.getElementById('editTin').value.trim();
+    const newHdmf          = document.getElementById('editHdmf').value.trim();
+    const newContactName   = document.getElementById('editContactName').value.trim();
+    const newContactAddr   = document.getElementById('editContactAddress').value.trim();
+    const _contactNumRaw   = document.getElementById('editContactNumber').value.trim();
+    const newContactNum    = _contactNumRaw ? '+63' + _contactNumRaw : '';
 
     btn.disabled = true;
     btn.textContent = 'Regenerating...';
@@ -2301,48 +3625,113 @@
     const isBirthdayReg = selectedTemplate === 'birthday';
     const form = new FormData();
     form.append('fullName', newName);
+    if (isIdRegen) {
+      form.append('firstName', document.getElementById('editFirstName').value.trim());
+      form.append('lastName',  document.getElementById('editLastName').value.trim());
+    }
     form.append('position', newPos);
     form.append('department', isBirthdayReg ? newDiv : newDept);
     form.append('division',   isBirthdayReg ? newDept : newDiv);
     form.append('birthdayDate', newBd);
     form.append('anniversaryYears', newYears);
     form.append('dateHired', newDateHired);
+    form.append('email', newEmail);
+    form.append('mobile', newMobile);
+    form.append('employeeNumber', newEmpNum);
+    form.append('address', newAddress);
+    form.append('phoneNumber', newPhoneNumber);
+    form.append('philhealth', newPhilhealth);
+    form.append('sss', newSss);
+    form.append('tin', newTin);
+    form.append('hdmf', newHdmf);
+    form.append('contactName', newContactName);
+    form.append('contactAddress', newContactAddr);
+    form.append('contactNumber', newContactNum);
     form.append('originalName', editOriginalName);
     if (editPhotoFile) form.append('photo', editPhotoFile);
+    if (editSignatureFile) form.append('signature', editSignatureFile);
 
     try {
       const res = await fetch(`/regenerate/${currentJobId}/${editIndex}`, { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Regeneration failed');
 
+      const _isPaired = selectedTemplate === 'multisys-id' || selectedTemplate === 'calling-card';
+      const _backSuffix = selectedTemplate === 'multisys-id' ? ' — Back Card' : ' — Back';
       const photoEmps = currentEmployees.filter(e => e.photoFound);
-      if (photoEmps[editIndex]) {
-        photoEmps[editIndex].fullName        = newName;
-        photoEmps[editIndex].position        = newPos;
-        photoEmps[editIndex].department      = isBirthdayReg ? newDiv  : newDept;
-        photoEmps[editIndex].division        = isBirthdayReg ? newDept : newDiv;
-        photoEmps[editIndex].birthdayDate     = newBd;
-        photoEmps[editIndex].anniversaryYears = newYears;
-        photoEmps[editIndex].dateHired        = newDateHired;
+      const empIdx = _isPaired ? Math.floor(editIndex / 2) : editIndex;
+      if (photoEmps[empIdx]) {
+        photoEmps[empIdx].fullName         = newName;
+        if (isIdRegen) {
+          photoEmps[empIdx]._editFirstName = document.getElementById('editFirstName').value.trim();
+          photoEmps[empIdx]._editLastName  = document.getElementById('editLastName').value.trim();
+        }
+        photoEmps[empIdx].position         = newPos;
+        photoEmps[empIdx].department       = isBirthdayReg ? newDiv  : newDept;
+        photoEmps[empIdx].division         = isBirthdayReg ? newDept : newDiv;
+        photoEmps[empIdx].birthdayDate     = newBd;
+        photoEmps[empIdx].anniversaryYears = newYears;
+        photoEmps[empIdx].dateHired        = newDateHired;
+        photoEmps[empIdx].email            = newEmail;
+        photoEmps[empIdx].mobile           = newMobile;
+        photoEmps[empIdx].employeeNumber   = newEmpNum;
+        photoEmps[empIdx].address          = newAddress;
+        photoEmps[empIdx].phoneNumber      = newPhoneNumber;
+        photoEmps[empIdx].philhealth       = newPhilhealth;
+        photoEmps[empIdx].sss              = newSss;
+        photoEmps[empIdx].tin              = newTin;
+        photoEmps[empIdx].hdmf             = newHdmf;
+        photoEmps[empIdx].contactName      = newContactName;
+        photoEmps[empIdx].contactAddress   = newContactAddr;
+        photoEmps[empIdx].contactNumber    = newContactNum;
+      }
+      // Keep lightboxEmployees in sync for paired back card entry
+      if (_isPaired && lightboxEmployees[editIndex + 1]) {
+        lightboxEmployees[editIndex + 1].fullName = newName + _backSuffix;
       }
 
       const ts = Date.now();
-      const items = document.querySelectorAll('#gallery .gallery-item');
-      if (items[editIndex]) {
-        const img = items[editIndex].querySelector('img');
-        if (img) img.src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
-        const lbl = items[editIndex].querySelector('.gallery-label');
-        if (lbl) lbl.textContent = newName;
-        const dl = items[editIndex].querySelector('.gallery-dl');
-        if (dl) { dl.download = `${buildFilename(newName, currentSuffix, photoEmps[editIndex] && photoEmps[editIndex].dateHired)}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
-      }
-      if (document.getElementById('lightbox').classList.contains('open') && lightboxIndex === editIndex) {
-        document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
-        document.getElementById('lightboxName').textContent = newName;
+      const lightboxEl = document.getElementById('lightbox');
+      const lightboxOpen = lightboxEl.classList.contains('open');
+      if (_isPaired) {
+        // Gallery uses .gallery-id-pair (one per employee)
+        const pairs = document.querySelectorAll('#gallery .gallery-id-pair');
+        const pair = pairs[empIdx];
+        if (pair) {
+          const imgs = pair.querySelectorAll('.gallery-id-side img');
+          if (imgs[0]) imgs[0].src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
+          if (imgs[1]) imgs[1].src = `/preview/${currentJobId}/${editIndex + 1}?t=${ts}`;
+          const lbl = pair.querySelector('.gallery-label');
+          if (lbl) lbl.textContent = newName;
+        }
+        if (lightboxOpen) {
+          if (lightboxIndex === editIndex) {
+            document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
+            document.getElementById('lightboxName').textContent = newName;
+          } else if (lightboxIndex === editIndex + 1) {
+            document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex + 1}?t=${ts}`;
+            document.getElementById('lightboxName').textContent = newName + _backSuffix;
+          }
+        }
+      } else {
+        const items = document.querySelectorAll('#gallery .gallery-item');
+        if (items[editIndex]) {
+          const img = items[editIndex].querySelector('img');
+          if (img) img.src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
+          const lbl = items[editIndex].querySelector('.gallery-label');
+          if (lbl) lbl.textContent = newName;
+          const dl = items[editIndex].querySelector('.gallery-dl');
+          if (dl) { dl.download = `${buildFilename(newName, currentSuffix, photoEmps[empIdx] && photoEmps[empIdx].dateHired)}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
+        }
+        if (lightboxOpen && lightboxIndex === editIndex) {
+          document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
+          document.getElementById('lightboxName').textContent = newName;
+        }
       }
 
-      document.getElementById('editModalOverlay').classList.remove('open');
+      closeEditModal();
       setError('');
+      showSuccess('Poster updated.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2352,9 +3741,27 @@
   }
 
   document.getElementById('editSaveBtn').addEventListener('click', async () => {
-    const newName = document.getElementById('editName').value.trim();
+    const _isIdSave = selectedTemplate === 'multisys-id';
+    const newName = _isIdSave
+      ? [document.getElementById('editFirstName').value.trim(), document.getElementById('editLastName').value.trim()].filter(Boolean).join(' ')
+      : document.getElementById('editName').value.trim();
     const newPos  = document.getElementById('editPosition').value.trim();
     if (!newName || !newPos) { setError('Full Name and Position are required.'); return; }
+    if (selectedTemplate === 'calling-card') {
+      const newEmail  = document.getElementById('editEmail').value.trim();
+      const newMobile = document.getElementById('editMobile').value.trim();
+      if (!newEmail || !newMobile) { setError('Email and Mobile are required for Calling Card.'); return; }
+    }
+    if (selectedTemplate === 'multisys-id') {
+      const idFields = [
+        ['Employee Number', 'editEmployeeNumber'], ['Address', 'editAddress'], ['Phone Number', 'editPhoneNumber'],
+        ['PhilHealth Number', 'editPhilhealth'], ['SSS Number', 'editSss'], ['TIN Number', 'editTin'],
+        ['HDMF', 'editHdmf'], ['Contact Name', 'editContactName'],
+        ['Contact Address', 'editContactAddress'], ['Contact Number', 'editContactNumber'],
+      ];
+      const missing = idFields.find(([, id]) => !document.getElementById(id).value.trim());
+      if (missing) { setError(`${missing[0]} is required.`); return; }
+    }
 
     // Check for photo filename mismatch
     if (editPhotoFile) {
@@ -2441,6 +3848,29 @@
       }).catch(() => {});
     }, 15000);
   }).catch(() => {});
+</script>
+<script>
+(function() {
+  var ox = 0, oy = 0;
+  var gbp = document.getElementById('gbp');
+  var ghp = document.getElementById('ghp');
+  var gh  = document.getElementById('grid-hover');
+  document.addEventListener('mousemove', function(e) {
+    var m = 'radial-gradient(300px circle at ' + e.clientX + 'px ' + e.clientY + 'px,black,transparent)';
+    gh.style.maskImage = m;
+    gh.style.webkitMaskImage = m;
+  });
+  function tick() {
+    ox = (ox + 0.15) % 40;
+    oy = (oy + 0.15) % 40;
+    gbp.setAttribute('x', ox.toFixed(2));
+    gbp.setAttribute('y', oy.toFixed(2));
+    ghp.setAttribute('x', ox.toFixed(2));
+    ghp.setAttribute('y', oy.toFixed(2));
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
 </script>
 </body>
 </html>
