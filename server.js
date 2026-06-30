@@ -172,7 +172,7 @@ if (AUTH_ENABLED) {
       db.getUsersByStatus('pending'),
       db.getUsersByStatus('approved'),
       db.getUsersByStatus('denied'),
-      db.getHistory(200),
+      db.getHistory(30),
       db.getErrors(50),
       db.getStats(),
     ]);

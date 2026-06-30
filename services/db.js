@@ -88,8 +88,9 @@ module.exports = {
     });
   },
 
-  getHistory: async (limit = 200) => {
-    const r = await client.execute({ sql: 'SELECT * FROM history ORDER BY generated_at DESC LIMIT ?', args: [limit] });
+  getHistory: async (days = 30) => {
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    const r = await client.execute({ sql: 'SELECT * FROM history WHERE generated_at > ? ORDER BY generated_at DESC', args: [since] });
     return r.rows;
   },
 
