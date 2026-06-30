@@ -371,6 +371,11 @@ app.post('/prepare', upload.fields([
       signatureFound: templateKey === 'multisys-id' ? !!findPhoto(emp.fullName, signatureMap) : undefined,
     }));
 
+    if (AUTH_ENABLED && templateKey === 'multisys-id') {
+      const missing = preview.filter(e => !e.signatureFound).map(e => e.fullName);
+      if (missing.length) return res.status(400).json({ error: `Signature required for: ${missing.join(', ')}` });
+    }
+
     const jobId = crypto.randomUUID();
     jobs.set(jobId, { employees, photoMap, signatureMap, posters: [], photos: [], signatures: [], status: 'ready', templateKey, noPhotoTemplate, createdAt: Date.now() });
 

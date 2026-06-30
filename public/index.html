@@ -1518,6 +1518,9 @@
 
 
   const _isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const _sigHint = _isDev ? '(optional)' : '(required)';
+  document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
+  document.getElementById('editSignatureLabel').textContent = `Replace signature ${_sigHint}`;
 
   if (_isDev) {
     document.getElementById('devReloadBtn').addEventListener('click', async () => {
@@ -1688,7 +1691,7 @@
     document.getElementById('signatureZone').classList.remove('has-file');
     document.getElementById('signatureList').innerHTML = '';
     document.getElementById('manualSignatureInput').value = '';
-    document.getElementById('manualSignatureLabel').textContent = 'Click to upload signature PNG (optional)';
+    document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
     document.getElementById('manualSignatureZone').classList.remove('has-file');
     renderManualList();
     setError('');
@@ -2365,7 +2368,7 @@
     const raw = this.files[0] || null;
     currentManualSignature = raw ? await removeSigBackground(raw) : null;
     document.getElementById('manualSignatureLabel').textContent = currentManualSignature
-      ? `✓ ${currentManualSignature.name}` : 'Click to upload signature PNG (optional)';
+      ? `✓ ${currentManualSignature.name}` : `Click to upload signature PNG ${_sigHint}`;
     document.getElementById('manualSignatureZone').classList.toggle('has-file', !!currentManualSignature);
   });
 
@@ -2467,6 +2470,10 @@
         }
       }
     }
+    if (isMultisysId && !_isDev && !currentManualSignature) {
+      setManualError('Signature is required.');
+      return;
+    }
     if (issues.length) {
       const msg = issues.join(' and ');
       document.getElementById('deptConfirmMsg').textContent =
@@ -2526,7 +2533,7 @@
     document.getElementById('photoMatchHint').style.display = 'none';
     currentManualSignature = null;
     document.getElementById('manualSignatureInput').value = '';
-    document.getElementById('manualSignatureLabel').textContent = 'Click to upload signature PNG (optional)';
+    document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
     document.getElementById('manualSignatureZone').classList.remove('has-file');
     hideDeptConfirm();
     updateUploadBtn();
@@ -3482,7 +3489,7 @@
     document.getElementById('editPhotoZone').style.display        = isCallingCard ? 'none' : '';
 
     editSignatureFile = null;
-    document.getElementById('editSignatureLabel').textContent = 'Replace signature (optional)';
+    document.getElementById('editSignatureLabel').textContent = `Replace signature ${_sigHint}`;
     document.getElementById('editSignatureInput').value = '';
     document.getElementById('editSignatureZone').classList.remove('has-file');
     document.getElementById('editPhotoLabel').textContent = 'Replace photo (optional)';
@@ -3534,7 +3541,7 @@
   document.getElementById('editSignatureInput').addEventListener('change', () => {
     editSignatureFile = document.getElementById('editSignatureInput').files[0] || null;
     document.getElementById('editSignatureLabel').textContent = editSignatureFile
-      ? `✓ ${editSignatureFile.name}` : 'Replace signature (optional)';
+      ? `✓ ${editSignatureFile.name}` : `Replace signature ${_sigHint}`;
     document.getElementById('editSignatureZone').classList.toggle('has-file', !!editSignatureFile);
     checkEditChanged();
   });

@@ -20,7 +20,7 @@ Generate Multisys announcement posters from a CSV file or manual entry. Photos a
 | **New Employee Poster** | CSV + bulk PNGs or manual | Yes |
 | **Work Anniversary** | CSV + bulk PNGs or manual | Yes |
 | **Calling Card** | CSV or manual | No (QR auto-generated) |
-| **Multisys ID** | CSV + bulk PNGs or manual | Yes (signature optional) |
+| **Multisys ID** | CSV + bulk PNGs or manual | Yes (+ signature required) |
 
 ## Features
 
@@ -32,7 +32,7 @@ Generate Multisys announcement posters from a CSV file or manual entry. Photos a
 - Edit any poster after generation and re-render individually
 - ZIP download with standardized filenames
 - Calling Card: QR code auto-generated from contact number
-- Multisys ID: optional signature upload, paired front+back PNG download, 2-page PDF export
+- Multisys ID: signature upload (required), paired front+back PNG download, 2-page PDF export
 - Google OAuth login restricted to `@multisyscorp.com` accounts
 - Admin dashboard with user approval, generation history, and usage charts
 
@@ -150,7 +150,7 @@ No photo required. QR code is auto-generated from the contact number.
 ```
 Employee Number, Full Name, Position, Address, Phone Number, SSS Number, TIN, Pag-ibig Number, PhilHealth Number, Emergency Contact Name, Emergency Contact Address, Emergency Contact Number
 ```
-Employee photo required. Signature PNG optional (matched by filename like photos).
+Employee photo required. Signature PNG required (matched by filename like photos).
 
 ## Photo Matching
 
