@@ -416,7 +416,8 @@ GET /me                  — returns { email, name } or {}
 - Charts: Posters by Template (doughnut, template colors) + Daily Activity last 30 days (bar)
 - Approved Users table (last seen, posters made, revoke)
 - Denied Users table (with re-approve)
-- Generation History table with user/template filters
+- Generation History table with user/template filters; row count badge; scrollable (max-height 420px, sticky thead); click any row → detail modal (`openActivityModal(idx)`) showing employee list + duration/template/date; `background:#141414` (do NOT use `var(--surface-1)` — undefined in admin.html); Esc/overlay click closes; `db.getHistory(30)` queries by date range (30-day window) not row limit
+- Render Errors table; same scrollable + click-to-details treatment as Recent Activity; `openErrorModal(idx)` shows full untruncated error message in monospaced scrollable block; `background:#141414` for modal
 - Auto-refreshes every 30 seconds via `setInterval(loadData, 30000)`
 
 **Required env vars for full auth:**
