@@ -145,6 +145,12 @@
       transition: color 0.15s;
     }
     .zone-remove-btn:hover, .zone-remove-btn:focus-visible { color: #ff5577; outline: none; }
+    .photo-remove-btn {
+      border: none; background: none; color: #3a3a3a; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 4px; transition: color 0.15s; vertical-align: middle; flex-shrink: 0;
+    }
+    .photo-remove-btn:hover, .photo-remove-btn:focus-visible { color: #ff5577; outline: none; }
 
     .hint {
       font-size: 13px;
@@ -2828,7 +2834,7 @@
         ${isAnniversary ? `<td style="color:#999;white-space:nowrap">${esc(emp.dateHired || '')}</td>` : ''}
         ${isCallingCard ? `<td style="color:#999">${esc(emp.email||'')}</td><td style="color:#999">${esc(emp.mobile||'')}</td>` : ''}
         ${isMultisysId ? `<td style="color:#999">${esc(emp.employeeNumber||'')}</td>` : ''}
-        ${!isCallingCard ? `<td><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">${emp.photoFound ? '✓ Found' : '✗ Missing'}</span></td>` : ''}
+        ${!isCallingCard ? `<td><div style="display:flex;align-items:center;gap:6px"><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">${emp.photoFound ? '✓ Found' : '✗ Missing'}</span>${emp.photoFound ? `<button class="photo-remove-btn" title="Remove photo" aria-label="Remove photo"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}</div></td>` : ''}
         ${isMultisysId ? `<td><span class="match-badge ${emp.signatureFound ? 'found' : 'missing'}">${emp.signatureFound ? '✓ Found' : '✗ Missing'}</span></td>` : ''}
         ${!isCallingCard && hasMissing ? `<td>${!emp.photoFound ? `<label class="upload-inline">↑ Upload Photo<input type="file" accept=".png" /></label>` : ''}</td>` : ''}`;
       if (!isCallingCard && !emp.photoFound) {
@@ -2861,6 +2867,27 @@
             label.classList.remove('uploading');
             label.innerHTML = '↑ Upload Photo';
           }
+        });
+      }
+      const photoRemoveBtn = tr.querySelector('.photo-remove-btn');
+      if (photoRemoveBtn) {
+        photoRemoveBtn.addEventListener('click', async function () {
+          if (activeMode === 'csv') {
+            const key = normalizeNameKey(emp.fullName);
+            const empTokens = key.split(' ');
+            photoFiles = photoFiles.filter(f => {
+              const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
+              if (fKey === key) return false;
+              const fTokens = fKey.split(' ');
+              if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
+              return true;
+            });
+            updatePhotoZone();
+          } else {
+            const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
+            if (manualEmp) manualEmp.photoFile = null;
+          }
+          try { await submitPrepare(); } catch (err) { setError(err.message); }
         });
       }
       tbody.appendChild(tr);
