@@ -103,11 +103,17 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 
 **Photo matching:** `services/matcher.js` exports `normalizeNameKey(str)` — strips diacritics via NFD decomposition (`normalize('NFD').replace(/[̀-ͯ]/g,'')`), lowercases, strips commas/separators, sorts tokens. Replicated client-side for live feedback. Diacritic stripping means "Escaño" and "Escano" match, "ñ"→"n", "é"→"e", etc.
 
+**Multer latin1 decode:** Multer parses multipart headers as `latin1` but browsers send filenames as UTF-8. `buildPhotoMap` re-decodes `file.originalname` via `Buffer.from(file.originalname, 'latin1').toString('utf8')` before normalizing — without this, filenames containing ñ, é, etc. arrive garbled and fail to match. Same decode applied to `photoFile.originalname` and `sigFile.originalname` in `/regenerate`.
+
 **CSV parsing:** `services/csv.js` — `parseCSV(buffer, templateKey)`. Detects header row via keyword list. Dates go through two corrections:
 1. `correctMonthSpelling` — capitalisation fix → prefix expansion → Levenshtein ≤ 3
 2. `stripYear` — removes year from any format: `May 01 1990` → `May 01`, `1990-08-25` → `August 25`, `08/25/1990` → `August 25`
 
-**Download filenames:** `LastName, FirstName-TemplateName-MMDDYY.png`. ZIP is named `TemplateName-MMDDYY.zip`.
+**Download filenames:**
+- **New Employee / Calling Card / Multisys ID:** `LastName, FirstName-TemplateName-MMDDYY.png`. ZIP is `TemplateName-MMDDYY.zip`.
+- **Birthday:** `MM-DD-LastName, FirstName-Birthday Poster.png` (MM-DD from `birthdayDate`). ZIP is `Birthday Poster.zip`. Generation date stripped.
+- **Work Anniversary:** `MM-DD-LastName, FirstName-Work Anniversary Poster.png` (MM-DD from `dateHired`). ZIP is `Work Anniversary Poster.zip`. Generation date stripped.
+- Applies to both individual Save button (client `buildFilename`) and ZIP download (server `/download`). `birthdayDate` stored on poster objects in job alongside existing `dateHired`.
 
 **Photo uploads:** All photo inputs accept `.png` only.
 
