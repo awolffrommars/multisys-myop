@@ -80,7 +80,8 @@ async function closeBrowser() {
 
 async function renderPoster(data, photoData, templateBase64, config, templateKey = 'new-employee', signatureData = null) {
   try {
-    let html = htmlCache[templateKey] || htmlCache['new-employee'];
+    const _htmlFile = HTML_FILES[templateKey] || HTML_FILES['new-employee'];
+    let html = fs.readFileSync(path.join(__dirname, '../templates', _htmlFile), 'utf8');
 
     const templateSrc = templateBase64
       ? `data:image/png;base64,${templateBase64}`
