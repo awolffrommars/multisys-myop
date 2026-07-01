@@ -466,11 +466,11 @@ app.get('/generate/:jobId', async (req, res) => {
           if (backBuffer) {
             const backKey = job.templateKey === 'multisys-id' ? 'multisys-id-back' : 'calling-card-back';
             return [
-              { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, posterTemplateKey: job.templateKey, side: 'front' },
-              { photoData: null, signatureData: null, name: emp.fullName, buffer: backBuffer, dateHired: emp.dateHired, posterTemplateKey: backKey, side: 'back' },
+              { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: job.templateKey, side: 'front' },
+              { photoData: null, signatureData: null, name: emp.fullName, buffer: backBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: backKey, side: 'back' },
             ];
           }
-          return { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired };
+          return { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate };
         } catch (err) {
           emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
           if (AUTH_ENABLED && req.user && db) {
@@ -487,7 +487,7 @@ app.get('/generate/:jobId', async (req, res) => {
         for (const r of items) {
           job.photos.push(r.photoData);
           job.signatures.push(r.signatureData);
-          job.posters.push({ name: r.name, buffer: r.buffer, dateHired: r.dateHired, posterTemplateKey: r.posterTemplateKey, side: r.side });
+          job.posters.push({ name: r.name, buffer: r.buffer, dateHired: r.dateHired, birthdayDate: r.birthdayDate, posterTemplateKey: r.posterTemplateKey, side: r.side });
         }
       }
     }
@@ -661,13 +661,25 @@ app.get('/download/:jobId', async (req, res) => {
   const suffix = req.query.suffix || '';
   const named = job.posters.map(p => {
     const sideTag = p.side === 'back' ? '-Back' : '';
-    const base = suffix ? `${lastFirst(p.name)}-${suffix}${sideTag}` : `${lastFirst(p.name)}${sideTag}`;
-    const prefix = job.templateKey === 'anniversary' ? dateHiredPrefix(p.dateHired) : null;
+    let base, prefix;
+    if (job.templateKey === 'birthday') {
+      const label = suffix.replace(/-\d{6}$/, '') || 'Birthday Poster';
+      base = `${lastFirst(p.name)}-${label}${sideTag}`;
+      prefix = dateHiredPrefix(p.birthdayDate);
+    } else if (job.templateKey === 'anniversary') {
+      const label = suffix.replace(/-\d{6}$/, '') || 'Work Anniversary Poster';
+      base = `${lastFirst(p.name)}-${label}${sideTag}`;
+      prefix = dateHiredPrefix(p.dateHired);
+    } else {
+      base = suffix ? `${lastFirst(p.name)}-${suffix}${sideTag}` : `${lastFirst(p.name)}${sideTag}`;
+      prefix = null;
+    }
     return { buffer: p.buffer, name: prefix ? `${prefix}-${base}` : base };
   });
   try {
     const zipBuffer = await buildZip(named);
-    const zipName = suffix ? `${suffix}.zip` : `${ZIP_NAMES[job.templateKey] || 'Posters'}.zip`;
+    const zipSuffix = (job.templateKey === 'birthday' || job.templateKey === 'anniversary') ? suffix.replace(/-\d{6}$/, '') : suffix;
+    const zipName = zipSuffix ? `${zipSuffix}.zip` : `${ZIP_NAMES[job.templateKey] || 'Posters'}.zip`;
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
     res.setHeader('Content-Length', zipBuffer.length);

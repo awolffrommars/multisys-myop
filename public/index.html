@@ -3056,7 +3056,7 @@
         const backLabel  = isMultisysId ? 'View back ID'  : 'View back';
         const saveBtn = (isMultisysId || isCallingCard)
           ? `<a class="btn btn-secondary gallery-dl" href="/download-pdf/${jobId}/${empIdx}" download="${esc(name)}-${isMultisysId ? 'Multisys ID' : 'Calling Card'}.pdf">↓ Save PDF</a>`
-          : `<a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>`;
+          : `<a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired, emp.birthdayDate))}.png">↓ Save</a>`;
         pair.innerHTML = `
           <div class="gallery-id-sides">
             <div class="gallery-id-side" tabindex="0" role="button" aria-label="${frontLabel} for ${esc(name)}">
@@ -3086,7 +3086,7 @@
           <div class="gallery-footer">
             <div class="gallery-label">${esc(name)}</div>
             <button class="btn btn-secondary gallery-edit-btn" style="flex-shrink:0;padding:6px 12px;font-size:12px">✎ Edit</button>
-            <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired))}.png">↓ Save</a>
+            <a class="btn btn-secondary gallery-dl" href="/preview/${jobId}/${frontIdx}" download="${esc(buildFilename(name, currentSuffix, emp.dateHired, emp.birthdayDate))}.png">↓ Save</a>
           </div>`;
         const galleryImg = item.querySelector('img');
         galleryImg.setAttribute('tabindex', '0');
@@ -3728,7 +3728,7 @@
           const lbl = items[editIndex].querySelector('.gallery-label');
           if (lbl) lbl.textContent = newName;
           const dl = items[editIndex].querySelector('.gallery-dl');
-          if (dl) { dl.download = `${buildFilename(newName, currentSuffix, photoEmps[empIdx] && photoEmps[empIdx].dateHired)}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
+          if (dl) { dl.download = `${buildFilename(newName, currentSuffix, photoEmps[empIdx] && photoEmps[empIdx].dateHired, photoEmps[empIdx] && photoEmps[empIdx].birthdayDate)}.png`; dl.href = `/preview/${currentJobId}/${editIndex}`; }
         }
         if (lightboxOpen && lightboxIndex === editIndex) {
           document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${editIndex}?t=${ts}`;
@@ -3806,11 +3806,20 @@
     const dd = String(parts[1]).padStart(2, '0');
     return (mm && dd) ? `${mm}-${dd}` : null;
   }
-  function buildFilename(name, suffix, dateHired) {
-    const base = `${lastFirst(name)}-${suffix}`;
-    if (selectedTemplate !== 'anniversary') return base;
-    const prefix = dateHiredPrefix(dateHired);
-    return prefix ? `${prefix}-${base}` : base;
+  function buildFilename(name, suffix, dateHired, birthdayDate) {
+    if (selectedTemplate === 'birthday') {
+      const label = suffix.replace(/-\d{6}$/, '') || 'Birthday Poster';
+      const base = `${lastFirst(name)}-${label}`;
+      const prefix = dateHiredPrefix(birthdayDate);
+      return prefix ? `${prefix}-${base}` : base;
+    }
+    if (selectedTemplate === 'anniversary') {
+      const label = suffix.replace(/-\d{6}$/, '') || 'Work Anniversary Poster';
+      const base = `${lastFirst(name)}-${label}`;
+      const prefix = dateHiredPrefix(dateHired);
+      return prefix ? `${prefix}-${base}` : base;
+    }
+    return `${lastFirst(name)}-${suffix}`;
   }
 
   function esc(str) {
