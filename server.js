@@ -528,7 +528,7 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
   if (photoFile) {
     const format = photoFile.mimetype.split('/')[1] || 'png';
     photoData = { base64: photoFile.buffer.toString('base64'), format };
-    job.photoMap.set(normalizeNameKey(fullName), { buffer: photoFile.buffer, format, originalName: photoFile.originalname });
+    job.photoMap.set(normalizeNameKey(fullName), { buffer: photoFile.buffer, format, originalName: Buffer.from(photoFile.originalname, 'latin1').toString('utf8') });
   } else {
     photoData = job.photos?.[index] || null;
     if (!photoData) {
@@ -548,7 +548,7 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
     const format = sigFile.mimetype.split('/')[1] || 'png';
     signatureData = { base64: sigFile.buffer.toString('base64'), format };
     if (!job.signatureMap) job.signatureMap = new Map();
-    job.signatureMap.set(normalizeNameKey(fullName), { buffer: sigFile.buffer, format, originalName: sigFile.originalname });
+    job.signatureMap.set(normalizeNameKey(fullName), { buffer: sigFile.buffer, format, originalName: Buffer.from(sigFile.originalname, 'latin1').toString('utf8') });
   } else {
     signatureData = job.signatures?.[index] || null;
     if (!signatureData && job.signatureMap) {

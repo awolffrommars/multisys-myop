@@ -18,7 +18,8 @@ function normalizeNameKey(str) {
 function buildPhotoMap(files) {
   const map = new Map();
   for (const file of files) {
-    const originalName = file.originalname;
+    // Multer parses multipart headers as latin1; browsers send UTF-8 — re-decode so ñ, é, etc. survive
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const lastDot = originalName.lastIndexOf('.');
     const ext = lastDot >= 0 ? originalName.slice(lastDot).toLowerCase() : '';
     if (!SUPPORTED_EXTS.has(ext)) continue;
