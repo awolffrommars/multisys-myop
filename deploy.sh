@@ -10,7 +10,7 @@ MSG="$1"
 
 echo ">>> Pushing to GitHub..."
 git add .
-git commit -m "$MSG"
+git diff --cached --quiet || git commit -m "$MSG"
 git push origin main
 
 echo ">>> Pushing to HuggingFace..."
