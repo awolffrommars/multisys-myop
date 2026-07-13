@@ -19,6 +19,17 @@ function formatPhoneDisplay(num) {
   return num;
 }
 
+// Escape user data before HTML interpolation — CSV cells must never execute
+// as markup/script inside the render browser
+function escapeHtml(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function normalizePhone(raw) {
   if (!raw) return null;
   // Accept any punctuation/spacing and any common PH prefix: 09…, 639…, +63 9…, 0063 9…, bare 9…
@@ -68,6 +79,7 @@ const _barsLogo    = loadIcon('msys-bars-logo.png');
 // ─────────────────────────────────────────────────────────────────────────────
 
 let browser = null;
+let activeRenders = 0; // renders currently in flight across ALL requests
 
 async function getBrowser() {
   if (!browser) {
@@ -77,7 +89,10 @@ async function getBrowser() {
 }
 
 async function closeBrowser() {
-  if (browser) {
+  // Never close while another request's render is mid-flight — two concurrent
+  // batches share this singleton, and closing under one kills the other
+  // ("Protocol error: Target closed"). The last batch to finish closes it.
+  if (browser && activeRenders === 0) {
     await browser.close();
     browser = null;
   }
@@ -122,52 +137,59 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       });
     }
 
-    let positionValue = data.position || '';
+    // Escape BEFORE inserting the <br> so the break survives escaping
+    let positionValue = escapeHtml(data.position || '');
     let anniversaryPositionTwoLines = false;
-    if (templateKey === 'anniversary' && positionValue.length > 30) {
-      const breakIdx = positionValue.lastIndexOf(' ', 30);
+    if (templateKey === 'anniversary' && (data.position || '').length > 30) {
+      const raw = data.position;
+      const breakIdx = raw.lastIndexOf(' ', 30);
       if (breakIdx > 0) {
-        positionValue = positionValue.slice(0, breakIdx) + '<br>' + positionValue.slice(breakIdx + 1);
+        positionValue = escapeHtml(raw.slice(0, breakIdx)) + '<br>' + escapeHtml(raw.slice(breakIdx + 1));
         anniversaryPositionTwoLines = true;
       }
     }
 
-    html = html
-      .replaceAll('{{TEMPLATE_BASE64}}', templateSrc)
-      .replaceAll('{{PHOTO_BASE64}}', photoSrc)
-      .replaceAll('{{FULL_NAME}}', data.fullName || '')
-      .replaceAll('{{POSITION}}', positionValue)
-      .replaceAll('{{DEPARTMENT}}', data.department || '')
-      .replaceAll('{{DIVISION}}', data.division || '')
-      .replaceAll('{{BIRTHDAY_DATE}}', data.birthdayDate || '')
-      .replaceAll('{{ANNIVERSARY_YEARS}}', data.anniversaryYears || '')
-      .replaceAll('{{DATE_HIRED}}', data.dateHired || '')
-      .replaceAll('{{EMAIL}}', data.email || '')
-      .replaceAll('{{MOBILE}}', data.mobile || '')
-      .replaceAll('{{QR_BASE64}}', qrDataUrl)
-      .replaceAll('{{LOGO_BASE64}}', logoDataUrl)
-      .replaceAll('{{EMPLOYEE_NUMBER}}', data.employeeNumber || '')
-      .replaceAll('{{ADDRESS}}', data.address || '')
-      .replaceAll('{{PHONE_NUMBER}}', data.phoneNumber || '')
-      .replaceAll('{{PHILHEALTH}}', data.philhealth || '')
-      .replaceAll('{{SSS}}', data.sss || '')
-      .replaceAll('{{TIN}}', data.tin || '')
-      .replaceAll('{{HDMF}}', data.hdmf || '')
-      .replaceAll('{{CONTACT_NAME}}', data.contactName || '')
-      .replaceAll('{{CONTACT_ADDRESS}}', data.contactAddress || '')
-      .replaceAll('{{CONTACT_NUMBER}}', data.contactNumber || '')
-      .replaceAll('{{SIGNATURE_BASE64}}', signatureSrc)
-      .replaceAll('{{HOME_ICON_BASE64}}', homeIconDataUrl)
-      .replaceAll('{{CONTACT_ICON_BASE64}}', contactIconDataUrl)
-      .replaceAll('{{PERSON_ICON_BASE64}}', personIconDataUrl);
+    // All replacements use function form — a plain string replacement makes
+    // `$&`, `$'`, `$$` etc. in the data act as regex substitution patterns,
+    // re-injecting tokens or duplicating template HTML.
+    // Text fields are HTML-escaped; data-URL/HTML fields (base64, phone lines) are trusted.
+    const sub = (token, value) => { html = html.replaceAll(token, () => value); };
+    sub('{{TEMPLATE_BASE64}}', templateSrc);
+    sub('{{PHOTO_BASE64}}', photoSrc);
+    sub('{{FULL_NAME}}', escapeHtml(data.fullName || ''));
+    sub('{{POSITION}}', positionValue);
+    sub('{{DEPARTMENT}}', escapeHtml(data.department || ''));
+    sub('{{DIVISION}}', escapeHtml(data.division || ''));
+    sub('{{BIRTHDAY_DATE}}', escapeHtml(data.birthdayDate || ''));
+    sub('{{ANNIVERSARY_YEARS}}', escapeHtml(data.anniversaryYears || ''));
+    sub('{{DATE_HIRED}}', escapeHtml(data.dateHired || ''));
+    sub('{{EMAIL}}', escapeHtml(data.email || ''));
+    sub('{{MOBILE}}', escapeHtml(data.mobile || ''));
+    sub('{{QR_BASE64}}', qrDataUrl);
+    sub('{{LOGO_BASE64}}', logoDataUrl);
+    sub('{{EMPLOYEE_NUMBER}}', escapeHtml(data.employeeNumber || ''));
+    sub('{{ADDRESS}}', escapeHtml(data.address || ''));
+    sub('{{PHONE_NUMBER}}', escapeHtml(data.phoneNumber || ''));
+    sub('{{PHILHEALTH}}', escapeHtml(data.philhealth || ''));
+    sub('{{SSS}}', escapeHtml(data.sss || ''));
+    sub('{{TIN}}', escapeHtml(data.tin || ''));
+    sub('{{HDMF}}', escapeHtml(data.hdmf || ''));
+    sub('{{CONTACT_NAME}}', escapeHtml(data.contactName || ''));
+    sub('{{CONTACT_ADDRESS}}', escapeHtml(data.contactAddress || ''));
+    sub('{{CONTACT_NUMBER}}', escapeHtml(data.contactNumber || ''));
+    sub('{{SIGNATURE_BASE64}}', signatureSrc);
+    sub('{{HOME_ICON_BASE64}}', homeIconDataUrl);
+    sub('{{CONTACT_ICON_BASE64}}', contactIconDataUrl);
+    sub('{{PERSON_ICON_BASE64}}', personIconDataUrl);
 
     // Calling card: build phone lines HTML and adjust font for long names / multiple numbers
     if (templateKey === 'calling-card') {
+      // formatPhoneDisplay normalizes all prefixes itself — pre-prepending +63
+      // here double-prefixed numbers already in 63… form
       const mobileNumbers = (data.mobile || '').split(/\s*\/\s*/).map(n => n.trim()).filter(Boolean)
-        .map(n => n.startsWith('+63') ? n : n.startsWith('0') ? '+63' + n.slice(1) : '+63' + n)
         .map(formatPhoneDisplay);
-      const phoneLines = `<div class="phone">${mobileNumbers.join(' / ')}</div>`;
-      html = html.replaceAll('{{PHONE_LINES}}', phoneLines);
+      const phoneLines = `<div class="phone">${escapeHtml(mobileNumbers.join(' / '))}</div>`;
+      html = html.replaceAll('{{PHONE_LINES}}', () => phoneLines);
       if (mobileNumbers.length >= 3) {
         html = html.replace('</head>', '<style>.phone { font-size: 28px !important; }</style></head>');
       }
@@ -193,7 +215,7 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
         lastName  = parts.length > 1 ? parts[parts.length - 1] : '';
         firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : (data.fullName || '');
       }
-      html = html.replaceAll('{{FIRST_NAME}}', firstName).replaceAll('{{LAST_NAME}}', lastName);
+      html = html.replaceAll('{{FIRST_NAME}}', () => escapeHtml(firstName)).replaceAll('{{LAST_NAME}}', () => escapeHtml(lastName));
       const noDivision = !data.division;
       const divTop  = anniversaryPositionTwoLines ? 775 : 733;
       const deptTop = anniversaryPositionTwoLines ? 855 : 813;
@@ -225,7 +247,9 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
     }
 
     const browserInstance = await getBrowser();
+    activeRenders++;
     const page = await browserInstance.newPage();
+    try {
 
     const VIEWPORTS = {
       'calling-card':      { width: 1920, height: 1152 },
@@ -323,8 +347,13 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
 
     const screenshot = await page.screenshot({ type: 'png', fullPage: false });
 
-    await page.close();
     return screenshot;
+    } finally {
+      // Close the page even on error — leaked pages accumulate in the
+      // long-lived browser (esp. from failed /regenerate calls)
+      activeRenders--;
+      await page.close().catch(() => {});
+    }
   } catch (error) {
     throw new Error(`Failed to render poster: ${error.message}`);
   }

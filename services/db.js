@@ -34,6 +34,11 @@ async function init() {
       error_message TEXT,
       occurred_at   INTEGER
     )`,
+    // Indexes for the admin dashboard's polling queries — without them every
+    // 30s refresh full-scans history/render_errors (billable Turso row reads)
+    `CREATE INDEX IF NOT EXISTS idx_history_generated_at ON history(generated_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_render_errors_occurred_at ON render_errors(occurred_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`,
   ], 'write');
 }
 
@@ -46,8 +51,11 @@ module.exports = {
   },
 
   upsertPending: async (email, name) => {
+    // Refresh the display name on every sign-in (people rename their Google
+    // account); status and requested_at stay as first recorded
     await client.execute({
-      sql:  'INSERT OR IGNORE INTO users (email, name, status, requested_at) VALUES (?, ?, ?, ?)',
+      sql:  `INSERT INTO users (email, name, status, requested_at) VALUES (?, ?, ?, ?)
+             ON CONFLICT(email) DO UPDATE SET name = excluded.name`,
       args: [email, name, 'pending', Date.now()],
     });
   },

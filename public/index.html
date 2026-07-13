@@ -1597,12 +1597,12 @@
   function updateQrPreview(mobile) {
     const wrap = document.getElementById('manualQrPreview');
     const placeholder = document.getElementById('qrPlaceholder');
+    clearTimeout(qrDebounceTimer); // also on the empty branch — else a pending timer re-shows a stale QR
     if (!mobile) {
       wrap.style.display = 'none';
       if (placeholder) placeholder.style.display = 'flex';
       return;
     }
-    clearTimeout(qrDebounceTimer);
     qrDebounceTimer = setTimeout(() => {
       const digits = mobile.replace(/\D/g, '').replace(/^00/, '');
       let uri;
@@ -1651,6 +1651,10 @@
     csvEmployeeNames = [];
     manualEmployees = [];
     currentManualPhoto = null;
+    // A template switch invalidates the prepared job — browser-forward to
+    // step 2/3 must not operate on the old template's data
+    currentJobId = null;
+    currentEmployees = [];
     csvInput.value = '';
     photoInput.value = '';
     manualPhotoInput.value = '';
@@ -2571,6 +2575,13 @@
     const contactName     = document.getElementById('manualContactName').value.trim();
     const contactAddress  = document.getElementById('manualContactAddress').value.trim();
     const contactNumber   = document.getElementById('manualContactNumber').value.trim();
+    // Re-validate required fields — "Add anyway" only waives the soft warnings,
+    // and the fields-locked overlay doesn't block keyboard edits
+    if (!name || !position) {
+      hideDeptConfirm();
+      setManualError('Full Name and Position are required.');
+      return;
+    }
     setError(''); setManualError('');
     commitEmployee(name, position, dept, division, birthday, years, dateHired, email, allMobiles2, employeeNumber ? 'MTC-' + employeeNumber : '', address, phoneNumber ? '+63' + phoneNumber : '', philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber ? '+63' + contactNumber : '');
   });
@@ -2605,6 +2616,13 @@
         // Auto-save whatever is currently in the form before loading the new employee
         const existingName = document.getElementById('manualName').value.trim();
         if (existingName) {
+          // Auto-save must normalize exactly like commitEmployee — prefixes
+          // attached, extra mobile numbers joined, signature preserved
+          const _asMobile = document.getElementById('manualMobile').value.trim();
+          const _asExtras = [...document.querySelectorAll('.extra-number-input')].map(el => el.value.trim()).filter(Boolean);
+          const _asEmpNum = document.getElementById('manualEmployeeNumber').value.trim();
+          const _asPhone  = document.getElementById('manualPhoneNumber').value.trim();
+          const _asContactNum = document.getElementById('manualContactNumber').value.trim();
           manualEmployees.push({
             fullName: existingName,
             position: document.getElementById('manualPosition').value.trim(),
@@ -2614,18 +2632,19 @@
             anniversaryYears: document.getElementById('manualYears').value.trim(),
             dateHired: document.getElementById('manualDateHired').value.trim(),
             email: document.getElementById('manualEmail').value.trim(),
-            mobile: (function(){ const v = document.getElementById('manualMobile').value.trim(); return v ? '+63' + v : ''; })(),
-            employeeNumber: document.getElementById('manualEmployeeNumber').value.trim(),
+            mobile: [_asMobile, ..._asExtras].filter(Boolean).map(m => '+63' + m).join(' / '),
+            employeeNumber: _asEmpNum ? 'MTC-' + _asEmpNum : '',
             address: document.getElementById('manualAddress').value.trim(),
-            phoneNumber: document.getElementById('manualPhoneNumber').value.trim(),
+            phoneNumber: _asPhone ? '+63' + _asPhone : '',
             philhealth: document.getElementById('manualPhilhealth').value.trim(),
             sss: document.getElementById('manualSss').value.trim(),
             tin: document.getElementById('manualTin').value.trim(),
             hdmf: document.getElementById('manualHdmf').value.trim(),
             contactName: document.getElementById('manualContactName').value.trim(),
             contactAddress: document.getElementById('manualContactAddress').value.trim(),
-            contactNumber: document.getElementById('manualContactNumber').value.trim(),
-            photoFile: currentManualPhoto
+            contactNumber: _asContactNum ? '+63' + _asContactNum : '',
+            photoFile: currentManualPhoto,
+            signatureFile: currentManualSignature
           });
           hideDeptConfirm();
           // i is still valid — push added to end, didn't shift earlier indices
@@ -2639,17 +2658,32 @@
         document.getElementById('manualYears').value = e.anniversaryYears || '';
         document.getElementById('manualDateHired').value = e.dateHired || '';
         document.getElementById('manualEmail').value = e.email || '';
-        document.getElementById('manualMobile').value = (e.mobile || '').replace(/^\+63/, '');
-        document.getElementById('manualEmployeeNumber').value = e.employeeNumber || '';
+        // Stored values carry their prefixes ('MTC-', '+63') — strip them on
+        // populate or re-committing prepends them again (MTC-MTC-…, +63+63…)
+        const _mobileParts = (e.mobile || '').split(/\s*\/\s*/).filter(Boolean).map(m => m.replace(/^\+63/, ''));
+        document.getElementById('manualMobile').value = _mobileParts[0] || '';
+        document.getElementById('extraNumbersList').innerHTML = '';
+        _mobileParts.slice(1).forEach(m => {
+          const row = makeExtraNumberRow();
+          document.getElementById('extraNumbersList').appendChild(row);
+          row.querySelector('.extra-number-input').value = m;
+        });
+        document.getElementById('addNumberBtn').style.display =
+          document.getElementById('extraNumbersList').children.length < 2 ? '' : 'none';
+        document.getElementById('manualEmployeeNumber').value = (e.employeeNumber || '').replace(/^MTC-/, '');
         document.getElementById('manualAddress').value = e.address || '';
-        document.getElementById('manualPhoneNumber').value = e.phoneNumber || '';
+        document.getElementById('manualPhoneNumber').value = (e.phoneNumber || '').replace(/^\+63/, '');
         document.getElementById('manualPhilhealth').value = e.philhealth || '';
         document.getElementById('manualSss').value = e.sss || '';
         document.getElementById('manualTin').value = e.tin || '';
         document.getElementById('manualHdmf').value = e.hdmf || '';
         document.getElementById('manualContactName').value = e.contactName || '';
         document.getElementById('manualContactAddress').value = e.contactAddress || '';
-        document.getElementById('manualContactNumber').value = e.contactNumber || '';
+        document.getElementById('manualContactNumber').value = (e.contactNumber || '').replace(/^\+63/, '');
+        currentManualSignature = e.signatureFile || null;
+        document.getElementById('manualSignatureLabel').textContent = currentManualSignature
+          ? `✓ ${currentManualSignature.name}` : `Click to upload signature PNG ${_sigHint}`;
+        document.getElementById('manualSignatureZone').classList.toggle('has-file', !!currentManualSignature);
         currentManualPhoto = e.photoFile;
         const label = document.getElementById('manualPhotoLabel');
         const zone = document.getElementById('manualPhotoZone');
@@ -2715,15 +2749,22 @@
     return form;
   }
 
+  let _prepareSeq = 0; // discard out-of-order responses when two /prepare calls overlap
+
   async function submitPrepare() {
+    const seq = ++_prepareSeq;
     const res = await fetch('/prepare', { method: 'POST', body: buildPrepareForm() });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
+    if (seq !== _prepareSeq) return data; // a newer request finished after this one — keep its state
     currentJobId = data.jobId;
     currentEmployees = data.employees;
     renderPreview(data.employees);
     renderPreviewSummary(data.employees);
     renderPhotoList();
+    if (data.duplicateFiles?.length) {
+      setError(`Duplicate photo names: ${data.duplicateFiles.map(d => `"${d.overwrote}" was replaced by "${d.kept}"`).join('; ')}`);
+    }
     return data;
   }
 
@@ -2845,9 +2886,14 @@
           if (activeMode === 'csv') {
             const key = normalizeNameKey(emp.fullName);
             const empTokens = key.split(' ');
+            // Never remove a file that exactly matches a DIFFERENT employee —
+            // "Peter Garlan.png" is a subset of "Peter Psalm Garlan" but may be
+            // employee Peter Garlan's own photo
+            const otherKeys = new Set(currentEmployees.filter(e => e.fullName !== emp.fullName).map(e => normalizeNameKey(e.fullName)));
             photoFiles = photoFiles.filter(f => {
               const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
               if (fKey === key) return false;
+              if (otherKeys.has(fKey)) return true;
               // Also remove partial-name files whose tokens are all contained in this employee's name
               const fTokens = fKey.split(' ');
               if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
@@ -2872,9 +2918,11 @@
           if (activeMode === 'csv') {
             const key = normalizeNameKey(emp.fullName);
             const empTokens = key.split(' ');
+            const otherKeys = new Set(currentEmployees.filter(e => e.fullName !== emp.fullName).map(e => normalizeNameKey(e.fullName)));
             photoFiles = photoFiles.filter(f => {
               const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
               if (fKey === key) return false;
+              if (otherKeys.has(fKey)) return true; // exact match for a different employee — keep
               const fTokens = fKey.split(' ');
               if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
               return true;
@@ -2900,7 +2948,11 @@
 
   document.getElementById('backBtn').addEventListener('click', () => goToStep(1));
 
+  let _evtSource = null; // active SSE stream — closed before a new run starts
+
   function runGenerate(jobId) {
+    // Back-then-Generate must not leave the previous stream's handlers alive
+    if (_evtSource) { _evtSource.close(); _evtSource = null; }
     const list = document.getElementById('progressList');
     list.innerHTML = '';
     document.getElementById('gallerySection').style.display = 'none';
@@ -2945,6 +2997,8 @@
     }
 
     const evtSource = new EventSource(`/generate/${jobId}`);
+    _evtSource = evtSource;
+    let completed = false;
 
     evtSource.onmessage = e => {
       const event = JSON.parse(e.data);
@@ -2972,6 +3026,7 @@
         }
 
       } else if (event.type === 'complete') {
+        completed = true;
         evtSource.close();
         document.getElementById('progressTitle').textContent = `Complete · ${event.count}/${currentEmployees.length}`;
 
@@ -3016,25 +3071,31 @@
           list.appendChild(moreEl);
         }
 
-        showGallery(jobId, event.count);
+        showGallery(jobId, event.count, event.names);
         if (_isDev) try {
           localStorage.setItem('devLastJob', JSON.stringify({ jobId, count: event.count, employees: currentEmployees, template: selectedTemplate }));
           document.getElementById('devReloadWrap').style.display = '';
         } catch(e) {}
 
       } else if (event.type === 'error') {
+        completed = true;
         evtSource.close();
         setError(event.message);
       }
     };
 
     evtSource.onerror = () => {
-      evtSource.close();
-      setError('Connection lost. Please try again.');
+      // Transient blips (and the server's deliberate empty-close while still
+      // generating) leave readyState CONNECTING — let EventSource auto-retry.
+      // Only give up when the browser has permanently closed the stream.
+      if (completed) return;
+      if (evtSource.readyState === EventSource.CLOSED) {
+        setError('Connection lost. Please try again.');
+      }
     };
   }
 
-  function showGallery(jobId, count) {
+  function showGallery(jobId, count, renderedNames) {
     updateStepIndicator(3, true); // generation finished — all dots green
     currentSuffix = getFileSuffix();
     const gallery = document.getElementById('gallery');
@@ -3063,8 +3124,21 @@
     document.getElementById('doneCount').textContent =
       `${count} poster${count !== 1 ? 's' : ''} ready`;
 
-    // photoEmployees maps 1:1 to employees; for paired templates each has 2 posters (front=2i, back=2i+1)
-    const photoEmployees = currentEmployees.filter(e => e.photoFound);
+    // Build the card list from the names the server ACTUALLY rendered — an
+    // errored render pushes no poster, so filtering by photoFound alone would
+    // shift every card after the failure onto the wrong person's image.
+    // For paired templates each rendered employee has 2 posters (front=2i, back=2i+1).
+    let photoEmployees;
+    if (Array.isArray(renderedNames)) {
+      const pool = currentEmployees.slice();
+      photoEmployees = renderedNames.map(n => {
+        const idx = pool.findIndex(e => e && e.fullName === n);
+        if (idx >= 0) { const e = pool[idx]; pool[idx] = null; return e; }
+        return { fullName: n, photoFound: true }; // renamed via edit — minimal record
+      });
+    } else {
+      photoEmployees = currentEmployees.filter(e => e.photoFound);
+    }
     lightboxEmployees = isPaired
       ? photoEmployees.flatMap(e => [e, { ...e, fullName: e.fullName + (isMultisysId ? ' — Back Card' : ' — Back') }])
       : photoEmployees;
@@ -3116,7 +3190,7 @@
         const galleryImg = item.querySelector('img');
         galleryImg.setAttribute('tabindex', '0');
         galleryImg.setAttribute('role', 'button');
-        galleryImg.setAttribute('aria-label', `View poster for ${esc(name)}`);
+        galleryImg.setAttribute('aria-label', `View poster for ${name}`);
         galleryImg.addEventListener('click', () => openLightbox(frontIdx));
         galleryImg.addEventListener('keydown', e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(frontIdx); }
@@ -3132,6 +3206,7 @@
   // Lightbox
   let lightboxIndex = -1;
   let lightboxEmployees = [];
+  let _posterVersions = {}; // posterIndex → last regenerate timestamp (cache-bust only what changed)
   let lightboxTriggerEl = null;
 
   // QR lightbox
@@ -3242,7 +3317,9 @@
     lightboxTriggerEl = document.activeElement;
     lightboxIndex = index;
     const emp = lightboxEmployees[index];
-    document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${index}?t=${Date.now()}`;
+    // Versioned cache-bust: only regenerated posters get a fresh ?t — a plain
+    // Date.now() here re-downloaded the full PNG on every open/prev/next
+    document.getElementById('lightboxImg').src = `/preview/${currentJobId}/${index}${_posterVersions[index] ? `?t=${_posterVersions[index]}` : ''}`;
     document.getElementById('lightboxImg').alt = emp.fullName;
     document.getElementById('lightboxName').textContent = emp.fullName;
     document.getElementById('lightboxPrev').disabled = index === 0;
@@ -3278,6 +3355,10 @@
   // Restart
   document.getElementById('restartBtn').addEventListener('click', () => {
     currentJobId = null;
+    currentEmployees = [];
+    lightboxEmployees = [];
+    document.getElementById('gallery').innerHTML = '';
+    document.getElementById('gallerySection').style.display = 'none';
     selectedTemplate = null;
     document.querySelectorAll('.template-option').forEach(o => o.classList.remove('active'));
     document.getElementById('employeesCard').classList.add('locked');
@@ -3304,9 +3385,15 @@
     if (!skipHistory) history.pushState({ step: n }, '');
   }
 
-  // Browser back/forward navigation through wizard steps
+  // Browser back/forward navigation through wizard steps.
+  // Validate the target — after Start Over or a template switch the history
+  // can point at steps whose state no longer exists (stale gallery, dead job).
   history.replaceState({ step: 1 }, '');
-  window.addEventListener('popstate', e => goToStep(e.state?.step ?? 1, true));
+  window.addEventListener('popstate', e => {
+    let n = e.state?.step ?? 1;
+    if (n >= 2 && !currentJobId) n = 1;
+    goToStep(n, true);
+  });
 
   function setError(msg) {
     const b = document.getElementById('errorBanner');
@@ -3345,9 +3432,9 @@
       'tpl-calling-card':  'Calling Card',
       'tpl-multisys-id':   'Multisys ID',
     };
-    const active = document.querySelector('.template-option.active');
-    const cls = active && Array.from(active.classList).find(c => c.startsWith('tpl-'));
-    const tplName = (cls && map[cls]) || 'Poster';
+    // Derive from state, not the DOM — "Reload Last Job" sets selectedTemplate
+    // without activating a template card
+    const tplName = map['tpl-' + selectedTemplate] || 'Poster';
     const now = new Date();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
@@ -3450,7 +3537,8 @@
       document.getElementById('editContactName').value    !== editSnapshot.contactName    ||
       document.getElementById('editContactAddress').value !== editSnapshot.contactAddress ||
       document.getElementById('editContactNumber').value  !== editSnapshot.contactNumber  ||
-      !!editPhotoFile;
+      !!editPhotoFile ||
+      !!editSignatureFile;
 
     document.getElementById('editSaveBtn').disabled = !(requiredFilled && changed);
   }
@@ -3723,6 +3811,8 @@
       }
 
       const ts = Date.now();
+      _posterVersions[editIndex] = ts;
+      if (_isPaired) _posterVersions[editIndex + 1] = ts;
       const lightboxEl = document.getElementById('lightbox');
       const lightboxOpen = lightboxEl.classList.contains('open');
       if (_isPaired) {
@@ -3876,7 +3966,7 @@
     const adminLink = user.isAdmin
       ? `<a href="/admin" target="_blank" rel="noopener" style="font-size:12px;color:#0099ff;text-decoration:none;font-weight:500">Admin</a>`
       : '';
-    bar.innerHTML = `<span style="font-size:12px;color:#555">${user.email}</span>
+    bar.innerHTML = `<span style="font-size:12px;color:#555">${esc(user.email)}</span>
       <span style="color:#333;margin:0 10px;font-size:12px">|</span>
       ${adminLink ? adminLink + '<span style="color:#333;margin:0 10px;font-size:12px">|</span>' : ''}
       <a href="/logout" style="font-size:12px;color:#555;text-decoration:none">Sign out</a>`;

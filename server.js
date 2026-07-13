@@ -26,6 +26,21 @@ const WHITELIST      = new Set(
 );
 const AUTH_ENABLED = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
+// Fail closed in production: if we're clearly on a deployed environment
+// (HuggingFace sets SPACE_ID) but the auth secrets didn't load, refuse to
+// start rather than silently serving employee PII to the open internet.
+if (!AUTH_ENABLED && (process.env.SPACE_ID || process.env.NODE_ENV === 'production')) {
+  console.error('FATAL: production environment detected but GOOGLE_CLIENT_ID/SECRET are missing — refusing to start without auth.');
+  process.exit(1);
+}
+if (AUTH_ENABLED && !process.env.SESSION_SECRET) {
+  console.warn('[auth] SESSION_SECRET not set — sessions will not survive a restart.');
+}
+
+// Small wrapper: Express 4 does not catch async handler rejections — without
+// this, a DB outage turns requests into permanent hangs.
+const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 let db;
 try {
   db = require('./services/db');
@@ -78,10 +93,13 @@ const deniedPage = () => _HEAD('Access Denied — MYOP') +
   </div><script>setInterval(async()=>{const r=await fetch('/auth/status').then(r=>r.json()).catch(()=>({}));if(r.status==='approved')location.href='/';},5000);</script></body></html>`;
 
 if (AUTH_ENABLED) {
+  app.set('trust proxy', 1); // behind the HuggingFace HTTPS proxy
   app.use(session({
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false, saveUninitialized: false,
-    cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 },
+    // secure:'auto' → Secure flag when the (proxied) connection is HTTPS;
+    // sameSite:'lax' → explicit CSRF baseline instead of browser defaults
+    cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 },
   }));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -110,6 +128,8 @@ if (AUTH_ENABLED) {
       const user = db ? await db.getUser(email) : null;
       if (user?.status === 'approved') { db.updateLastSeen(email).catch(() => {}); return next(); }
       if (user?.status === 'denied') return res.redirect('/denied');
+      // DB unavailable and not whitelisted: /waiting would poll forever — send back to login
+      if (!db) { req.logout(() => {}); return res.redirect('/login?denied=1'); }
       return res.redirect('/waiting');
     } catch (e) { next(e); }
   };
@@ -127,7 +147,7 @@ if (AUTH_ENABLED) {
 
   app.get('/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login?denied=1' }),
-    async (req, res) => {
+    asyncH(async (req, res) => {
       const { email, name } = req.user;
       if (WHITELIST.has(email)) return res.redirect('/');
       if (!db) { req.logout(() => {}); return res.redirect('/login'); }
@@ -136,27 +156,27 @@ if (AUTH_ENABLED) {
       if (existing?.status === 'denied') { req.logout(() => {}); return res.redirect('/denied'); }
       await db.upsertPending(email, name);
       res.redirect('/waiting');
-    }
+    })
   );
 
-  app.get('/waiting', async (req, res) => {
+  app.get('/waiting', asyncH(async (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/login');
     if (WHITELIST.has(req.user.email)) return res.redirect('/');
     const user = db ? await db.getUser(req.user.email) : null;
     if (user?.status === 'approved') return res.redirect('/');
     if (user?.status === 'denied')   return res.redirect('/denied');
     res.send(waitingPage(req.user.email));
-  });
+  }));
 
   app.get('/denied',      (req, res) => res.send(deniedPage()));
   app.get('/logout',      (req, res) => req.logout(() => res.redirect('/login')));
-  app.get('/auth/status', async (req, res) => {
+  app.get('/auth/status', asyncH(async (req, res) => {
     if (!req.isAuthenticated()) return res.json({ status: 'unauthenticated' });
     const { email } = req.user;
     if (WHITELIST.has(email)) return res.json({ status: 'approved' });
     const user = db ? await db.getUser(email) : null;
     res.json({ status: user?.status || 'pending' });
-  });
+  }));
   app.get('/me', (req, res) => {
     if (req.isAuthenticated()) return res.json({ email: req.user.email, name: req.user.name, isAdmin: req.user.email === ADMIN_EMAIL });
     res.json({});
@@ -166,7 +186,7 @@ if (AUTH_ENABLED) {
   app.get('/admin', requireAdmin, (req, res) =>
     res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-  app.get('/admin/data', requireAdmin, async (req, res) => {
+  app.get('/admin/data', requireAdmin, asyncH(async (req, res) => {
     if (!db) return res.json({ pending: [], approved: [], denied: [], history: [], errors: [], stats: { byTemplate: [], byUser: [], activity: [], totalPosters: 0 } });
     const [pending, approved, denied, history, errors, stats] = await Promise.all([
       db.getUsersByStatus('pending'),
@@ -177,32 +197,37 @@ if (AUTH_ENABLED) {
       db.getStats(),
     ]);
     res.json({ pending, approved, denied, history, errors, stats });
-  });
+  }));
 
-  app.post('/admin/approve/:email', requireAdmin, async (req, res) => {
+  app.post('/admin/approve/:email', requireAdmin, asyncH(async (req, res) => {
     const email = decodeURIComponent(req.params.email);
     if (db) await db.updateStatus(email, 'approved');
     res.json({ ok: true });
-  });
+  }));
 
-  app.post('/admin/deny/:email', requireAdmin, async (req, res) => {
+  app.post('/admin/deny/:email', requireAdmin, asyncH(async (req, res) => {
     if (db) await db.updateStatus(decodeURIComponent(req.params.email), 'denied');
     res.json({ ok: true });
-  });
+  }));
 
-  app.post('/admin/revoke/:email', requireAdmin, async (req, res) => {
+  app.post('/admin/revoke/:email', requireAdmin, asyncH(async (req, res) => {
     if (db) await db.updateStatus(decodeURIComponent(req.params.email), 'denied');
     res.json({ ok: true });
-  });
+  }));
 
   // ─── Protect app routes ───────────────────────────────────────────────────
+  // NOTE: Express mount paths match at `/` boundaries only — `/download` does
+  // NOT cover `/download-pdf`; every data-returning route needs its own mount.
   app.use('/index.html',      requireAccess);
   app.use('/prepare',         requireAccess);
   app.use('/generate',        requireAccess);
   app.use('/preview',         requireAccess);
   app.use('/download',        requireAccess);
+  app.use('/download-pdf',    requireAccess);
   app.use('/regenerate',      requireAccess);
-  app.use('/reload-template', requireAccess);
+  app.use('/job',             requireAccess);
+  app.use('/qr-preview',      requireAccess);
+  app.use('/reload-template', requireAdmin);
 
   app.get('/', requireAccess, (req, res) =>
     res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -302,7 +327,8 @@ app.post('/reload-template', (req, res) => {
 
 // QR preview for calling card manual entry
 app.get('/qr-preview', async (req, res) => {
-  const raw = (req.query.mobile || '').trim();
+  // String() — a repeated query param (?mobile=a&mobile=b) arrives as an array
+  const raw = String(req.query.mobile || '').trim();
   if (!raw) return res.status(400).send('mobile required');
   const digits = raw.replace(/\D/g, '');
   if (digits.length < 7) return res.status(400).send('number too short');
@@ -316,6 +342,17 @@ app.get('/qr-preview', async (req, res) => {
   } catch (err) {
     res.status(500).send('QR generation failed');
   }
+});
+
+// Reject absurdly large uploads before multer buffers them into memory —
+// per-file limits alone still allow ~10GB across 500 files in one request
+const MAX_PREPARE_BYTES = 300 * 1024 * 1024;
+app.use('/prepare', (req, res, next) => {
+  const len = parseInt(req.headers['content-length'], 10);
+  if (len && len > MAX_PREPARE_BYTES) {
+    return res.status(413).json({ error: 'Upload too large — keep the total batch under 300 MB.' });
+  }
+  next();
 });
 
 // Step 1: Upload CSV + photos, return preview
@@ -377,7 +414,9 @@ app.post('/prepare', upload.fields([
     const jobId = crypto.randomUUID();
     jobs.set(jobId, { employees, photoMap, signatureMap, posters: [], photos: [], signatures: [], status: 'ready', templateKey, noPhotoTemplate, createdAt: Date.now() });
 
-    res.json({ jobId, employees: preview });
+    // Two uploaded files normalizing to the same employee — warn instead of silently keeping the last
+    const duplicateFiles = [...(photoMap.duplicates || []), ...(signatureMap.duplicates || [])];
+    res.json({ jobId, employees: preview, duplicateFiles: duplicateFiles.length ? duplicateFiles : undefined });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -393,9 +432,10 @@ app.get('/generate/:jobId', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     if (job.status === 'done') {
-      // Generation complete — send the real count so a reconnected client gets a consistent gallery
-      // (front+back pairs count as one poster)
-      res.write(`data: ${JSON.stringify({ type: 'complete', count: job.posters.filter(p => p.side !== 'back').length })}\n\n`);
+      // Generation complete — send count AND rendered names so a reconnected
+      // client builds a gallery aligned with posters[] (front+back pairs = 1)
+      const fronts = job.posters.filter(p => p.side !== 'back');
+      res.write(`data: ${JSON.stringify({ type: 'complete', count: fronts.length, names: fronts.map(p => p.name) })}\n\n`);
     } else if (job.status === 'error') {
       res.write(`data: ${JSON.stringify({ type: 'error', message: 'Generation failed.' })}\n\n`);
     }
@@ -408,6 +448,7 @@ app.get('/generate/:jobId', async (req, res) => {
   job.startedAt = Date.now();
   job.posters = [];
   job.photos = [];
+  job.signatures = []; // must reset with posters/photos to keep 1:1 index alignment
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -499,7 +540,9 @@ app.get('/generate/:jobId', async (req, res) => {
       try { await db.logHistory(req.user.email, job.templateKey, frontPosters.length, frontPosters.map(p => p.name), durationMs); } catch {}
     }
 
-    emit({ type: 'complete', count: frontPosters.length });
+    // names lets the client align gallery cards with posters[] even when some
+    // employees errored mid-batch (errored renders push nothing)
+    emit({ type: 'complete', count: frontPosters.length, names: frontPosters.map(p => p.name) });
     res.end();
   } catch (err) {
     job.status = 'error';
@@ -522,7 +565,11 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
   const posterTemplateKey = poster.posterTemplateKey || job.templateKey;
   const isBackCard = posterTemplateKey === 'multisys-id-back' || posterTemplateKey === 'calling-card-back';
 
-  const { fullName, firstName, lastName, position, department, division, birthdayDate, anniversaryYears, dateHired, originalName, email, mobile, employeeNumber, address, phoneNumber, philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber } = req.body;
+  const { fullName, firstName, lastName, position, department, division, birthdayDate, anniversaryYears, dateHired, originalName, email, mobile, employeeNumber, address, phoneNumber, philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber } = req.body || {};
+  // Validate before normalizeNameKey(fullName) — undefined would throw outside the try
+  if (typeof fullName !== 'string' || !fullName.trim()) {
+    return res.status(400).json({ error: 'fullName is required.' });
+  }
 
   const photoFile = req.files?.photo?.[0];
   let photoData = null;
@@ -570,7 +617,8 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
     );
     job.photos[index] = isBackCard ? null : photoData;
     job.signatures[index] = isBackCard ? null : signatureData;
-    job.posters[index] = { name: fullName, buffer: pngBuffer, dateHired, posterTemplateKey, side: poster.side };
+    // Preserve date fields — /download builds MM-DD filename prefixes from them
+    job.posters[index] = { name: fullName, buffer: pngBuffer, dateHired: dateHired || poster.dateHired, birthdayDate: birthdayDate || poster.birthdayDate, posterTemplateKey, side: poster.side };
     if (!isBackCard && photoData) {
       const photoBuffer = Buffer.from(photoData.base64, 'base64');
       job.photoMap.set(normalizeNameKey(fullName), { buffer: photoBuffer, format: photoData.format, originalName: fullName });
@@ -612,6 +660,9 @@ app.get('/job/:jobId', (req, res) => {
 app.post('/job/:jobId/reset', (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found or expired' });
+  // Resetting mid-generation would let a second /generate interleave pushes
+  // into posters[]/photos[], corrupting every index-based lookup
+  if (job.status === 'generating') return res.status(409).json({ error: 'Job is currently generating — wait for it to finish.' });
   job.status = 'ready';
   job.posters = [];
   job.photos = [];
@@ -644,7 +695,7 @@ app.get('/download-pdf/:jobId/:empIdx', async (req, res) => {
     const backBuf  = job.posters[backIdx]?.buffer || null;
     const empName  = job.posters[frontIdx].name || '';
     const pdfBuffer = await renderPdf(frontBuf, backBuf, { pageWidth: cfg.pageWidth, pageHeight: cfg.pageHeight });
-    const fileBase = `${lastFirst(empName)}-${cfg.label}`;
+    const fileBase = headerSafe(`${lastFirst(empName)}-${cfg.label}`);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.pdf"`);
     res.send(pdfBuffer);
@@ -653,13 +704,19 @@ app.get('/download-pdf/:jobId/:empIdx', async (req, res) => {
   }
 });
 
+// Quotes/control chars in a Content-Disposition filename produce a malformed header
+function headerSafe(s) {
+  return String(s).replace(/["\\\r\n\x00-\x1f]/g, '');
+}
+
 // Download ZIP
 app.get('/download/:jobId', async (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job || !job.posters.length) {
     return res.status(404).json({ error: 'No ZIP available. Run generation first.' });
   }
-  const suffix = req.query.suffix || '';
+  // String() — a repeated query param arrives as an array and .replace would throw
+  const suffix = String(req.query.suffix || '');
   const named = job.posters.map(p => {
     const sideTag = p.side === 'back' ? '-Back' : '';
     let base, prefix;
@@ -680,7 +737,7 @@ app.get('/download/:jobId', async (req, res) => {
   try {
     const zipBuffer = await buildZip(named);
     const zipSuffix = (job.templateKey === 'birthday' || job.templateKey === 'anniversary') ? suffix.replace(/-\d{6}$/, '') : suffix;
-    const zipName = zipSuffix ? `${zipSuffix}.zip` : `${ZIP_NAMES[job.templateKey] || 'Posters'}.zip`;
+    const zipName = headerSafe(zipSuffix ? `${zipSuffix}.zip` : `${ZIP_NAMES[job.templateKey] || 'Posters'}.zip`);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
     res.setHeader('Content-Length', zipBuffer.length);
@@ -709,6 +766,13 @@ function buildZip(posters) {
     archive.finalize();
   });
 }
+
+// JSON error handler — asyncH-forwarded rejections land here instead of hanging
+app.use((err, req, res, next) => {
+  console.error('[error]', req.method, req.path, err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

@@ -17,6 +17,7 @@ function normalizeNameKey(str) {
 
 function buildPhotoMap(files) {
   const map = new Map();
+  const duplicates = [];
   for (const file of files) {
     // Multer parses multipart headers as latin1; browsers send UTF-8 — re-decode so ñ, é, etc. survive
     const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -26,12 +27,18 @@ function buildPhotoMap(files) {
 
     const nameWithoutExt = lastDot >= 0 ? originalName.slice(0, lastDot) : originalName;
     const key = normalizeNameKey(nameWithoutExt);
+    if (map.has(key)) {
+      // Two files normalize to the same person ("Smith, John.png" + "John Smith.png") —
+      // last one wins, but record it so /prepare can warn instead of silently dropping
+      duplicates.push({ kept: originalName, overwrote: map.get(key).originalName });
+    }
     map.set(key, {
       buffer: file.buffer,
       format: 'png',
       originalName,
     });
   }
+  map.duplicates = duplicates;
   return map;
 }
 

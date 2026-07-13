@@ -702,7 +702,7 @@ function errTypeClass(type = '') {
   if (t.includes('missing'))  return 'missing';
   return 'render';
 }
-function enc(e) { return encodeURIComponent(e); }
+function enc(e) { return encodeURIComponent(e).replace(/'/g, '%27'); } // ' would break out of onclick='...' strings
 
 let toastTimer;
 function toast(msg, type = '') {
@@ -784,10 +784,13 @@ function renderDoughnut() {
   const data   = ORDER.map(k => (byTpl.find(r => r.template === k)?.total) || 0);
 
   if (data.every(v => v === 0)) {
+    // Destroy before removing the canvas — a live Chart bound to a detached
+    // canvas keeps its resize observers alive
+    if (charts.doughnut) { charts.doughnut.destroy(); charts.doughnut = null; }
     wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:210px;color:var(--text-muted);font-size:13px">No poster data yet</div>';
     return;
   }
-  if (!wrap.querySelector('canvas')) wrap.innerHTML = '<canvas id="chart-doughnut"></canvas>';
+  if (!wrap.querySelector('canvas')) wrap.innerHTML = '<canvas id="chart-doughnut" role="img" aria-label="Posters by template"></canvas>';
   const ctx = document.getElementById('chart-doughnut').getContext('2d');
   if (charts.doughnut) charts.doughnut.destroy();
   charts.doughnut = new Chart(ctx, {
@@ -846,11 +849,16 @@ function renderRecentActivity() {
   const sel   = document.getElementById('recent-user-filter');
   const all   = DATA.history || [];
 
-  // Rebuild dropdown options, preserving current selection
+  // Rebuild dropdown options only when the email set actually changed —
+  // rebuilding on every 30s auto-refresh snaps an open dropdown shut
   const selected = sel.value || 'all';
   const emails = [...new Set(all.map(r => r.user_email))].sort();
-  sel.innerHTML = '<option value="all">All Users</option>' +
-    emails.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
+  const sig = emails.join('|');
+  if (sel.dataset.sig !== sig) {
+    sel.innerHTML = '<option value="all">All Users</option>' +
+      emails.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
+    sel.dataset.sig = sig;
+  }
   sel.value = emails.includes(selected) ? selected : 'all';
 
   const rows = sel.value === 'all' ? all : all.filter(r => r.user_email === sel.value);
@@ -928,13 +936,13 @@ function renderErrorsTable() {
   }
   tbody.innerHTML = errors.map((e, i) => {
     const cls = errTypeClass(e.error_type);
-    const msg = (e.error_message || '').replace(/</g,'&lt;');
+    const msg = esc(e.error_message || ''); // esc() handles quotes — needed in the title attribute context
     return `<tr onclick="openErrorModal(${i})" style="cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
       <td style="color:var(--text-dim);font-size:12px;white-space:nowrap">${timeAgo(e.occurred_at)}</td>
-      <td style="font-size:12px;color:var(--text-dim)">${e.user_email || '—'}</td>
-      <td><span class="tpl ${e.template || ''}">${tplLabel(e.template)}</span></td>
+      <td style="font-size:12px;color:var(--text-dim)">${esc(e.user_email || '—')}</td>
+      <td><span class="tpl ${esc(e.template || '')}">${tplLabel(e.template)}</span></td>
       <td style="font-size:13px">${e.employee_name ? esc(e.employee_name) : '<span style="color:var(--text-muted);font-size:12px">Whole batch</span>'}</td>
-      <td><span class="err-type ${cls}">${e.error_type}</span></td>
+      <td><span class="err-type ${cls}">${esc(e.error_type || '')}</span></td>
       <td><div class="err-msg" title="${msg}">${msg || '—'}</div></td>
     </tr>`;
   }).join('');
@@ -944,15 +952,15 @@ function openErrorModal(idx) {
   const e = (DATA.errors || [])[idx];
   if (!e) return;
   const cls = errTypeClass(e.error_type);
-  const msg = (e.error_message || '').replace(/</g, '&lt;');
+  const msg = esc(e.error_message || '');
   const content = document.getElementById('errorModalContent');
   content.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px">Render Error Details</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
       <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">WHEN</div><div style="font-size:13px">${fmtDateTime(e.occurred_at)}</div></div>
-      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">USER</div><div style="font-size:13px">${e.user_email || '—'}</div></div>
-      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">TEMPLATE</div><div><span class="tpl ${e.template || ''}">${tplLabel(e.template)}</span></div></div>
-      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">ERROR TYPE</div><div><span class="err-type ${cls}">${e.error_type}</span></div></div>
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">USER</div><div style="font-size:13px">${esc(e.user_email || '—')}</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">TEMPLATE</div><div><span class="tpl ${esc(e.template || '')}">${tplLabel(e.template)}</span></div></div>
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">ERROR TYPE</div><div><span class="err-type ${cls}">${esc(e.error_type || '')}</span></div></div>
       <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">EMPLOYEE</div><div style="font-size:13px">${e.employee_name ? esc(e.employee_name) : '<span style="color:var(--text-muted)">Whole batch</span>'}</div></div>
     </div>
     <div style="font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">ERROR MESSAGE</div>
@@ -990,8 +998,8 @@ function renderRequests() {
 
   tbody.innerHTML = DATA.pending.length
     ? DATA.pending.map(u => `<tr>
-        <td>${u.email}</td>
-        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td>${esc(u.email)}</td>
+        <td style="color:var(--text-dim)">${esc(u.name || '—')}</td>
         <td style="color:var(--text-dim)">${timeAgo(u.requested_at)}</td>
         <td>
           <button class="btn-approve" onclick="approveUser('${enc(u.email)}')">Approve</button>
@@ -1003,8 +1011,8 @@ function renderRequests() {
   // Approved
   document.getElementById('approved-tbody').innerHTML = DATA.approved.length
     ? DATA.approved.map(u => `<tr>
-        <td>${u.email}</td>
-        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td>${esc(u.email)}</td>
+        <td style="color:var(--text-dim)">${esc(u.name || '—')}</td>
         <td style="color:var(--text-dim)">${timeAgo(u.approved_at || u.requested_at)}</td>
         <td><button class="btn-deny" onclick="revokeUser('${enc(u.email)}')">Revoke</button></td>
       </tr>`).join('')
@@ -1013,8 +1021,8 @@ function renderRequests() {
   // Denied
   document.getElementById('denied-tbody').innerHTML = DATA.denied.length
     ? DATA.denied.map(u => `<tr>
-        <td>${u.email}</td>
-        <td style="color:var(--text-dim)">${u.name || '—'}</td>
+        <td>${esc(u.email)}</td>
+        <td style="color:var(--text-dim)">${esc(u.name || '—')}</td>
         <td style="color:var(--text-dim)">${timeAgo(u.requested_at)}</td>
         <td><button class="btn-approve" onclick="approveUser('${enc(u.email)}')">Re-approve</button></td>
       </tr>`).join('')
@@ -1029,8 +1037,13 @@ function populateUserDropdown() {
   history.forEach(r => emailSet.add(r.user_email));
 
   const prev = sel.value;
-  sel.innerHTML = '<option value="all">All Users</option>' +
-    [...emailSet].sort().map(e => `<option value="${e}"${e === prev ? ' selected' : ''}>${e}</option>`).join('');
+  const sorted = [...emailSet].sort();
+  const sig = sorted.join('|');
+  if (sel.dataset.sig !== sig) { // rebuild only when membership changed — see recent-user-filter
+    sel.innerHTML = '<option value="all">All Users</option>' +
+      sorted.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
+    sel.dataset.sig = sig;
+  }
   if (prev && prev !== 'all' && emailSet.has(prev)) sel.value = prev;
 }
 

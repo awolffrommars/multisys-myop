@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Pending Work
 
 - **Google Drive + README:** Upload the three template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
-- **Deploy:** Many accumulated uncommitted changes — run `./deploy.sh "your message"` when ready.
+- **Deploy:** All accumulated changes (incl. the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`) are uncommitted — `./deploy.sh "Various fixes."` commits + ships everything. Revert hatch: `git reset --hard backup-pre-hardening`.
 
 ## Backgrounds (2026-06-29)
 
@@ -93,13 +93,15 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 **SSE events** from `GET /generate/:jobId`:
 ```js
 { type: 'progress', row, name, position, department, division, birthdayDate, status: 'processing'|'done'|'skipped'|'error', message? }
-{ type: 'complete', count }   // count = front posters only; front+back pairs count as 1 (calling-card, multisys-id)
+{ type: 'complete', count, names }   // count = front posters only (front+back pairs = 1); names = rendered front names IN ORDER — the client builds the gallery from this so an errored render doesn't shift cards onto the wrong poster
 { type: 'error', message }
 ```
 
 `db.logHistory` also logs the front-only count and front-only names (`job.posters.filter(p => p.side !== 'back')`).
 
 **Poster rendering:** `services/poster.js` — `renderPoster(data, photoData, templateBase64, config, templateKey, signatureData)`. Loads HTML template based on `templateKey`, replaces all tokens via `.replaceAll()` (not `.replace()` — ensures duplicate tokens in a template are all substituted), screenshots at 1920×1081.
+- **Escaping (do NOT remove):** every text field goes through `escapeHtml()` before substitution — CSV cells must never execute as markup inside the render browser. All `replaceAll` calls use FUNCTION-form replacements (`() => value`): a plain string replacement makes `$&`/`` $` ``/`$$` in the data act as regex substitution patterns (re-injecting tokens / duplicating template HTML). Anniversary position `<br>` is inserted AFTER escaping each half.
+- **Browser lifecycle:** module-level singleton + `activeRenders` counter — `closeBrowser()` is a no-op while any render is in flight (two concurrent batches share the browser; unconditional close killed the other batch's renders with "Target closed"). Every render's page is closed in a `finally` (error paths leaked pages).
 - **Auto-fit (all templates):** After `document.fonts.ready`, an `AUTOFIT` pass in `renderPoster` measures each configured overlay's real rendered text width (via `document.createRange()` — NOT `scrollWidth`, which is floored at element width for fixed-width overlays) and shrinks font 1px at a time (floor 16px) until it fits. Uses `el.style.setProperty('font-size', ..., 'important')` so it beats the `config.nameFontSize !important` injection. Limits: new-employee/birthday name → parent column width; anniversary first/last name → 1030px (photo starts x=1155); calling-card name+position → 1400px; multisys-id first/last/position → 1700px. This replaced ALL char-count guards (new-employee >24 chars, calling-card >20/>26 chars) — do not re-add them.
 - **New Employee:** Full Name has `white-space: nowrap`. Font wait uses `await page.evaluate(async () => await document.fonts.ready)`. Photo img has `position:relative; top:30px` — 30px headroom above the head, bottom 30px cropped by `overflow:hidden`.
 - **Birthday:** Full Name renders at 57px with `white-space: nowrap` (auto-fit shrinks only if it overflows the 780px block).
@@ -109,13 +111,13 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 
 **PDF download** (`renderPdf` in `services/poster.js`): Used for Multisys ID — generates a 2-page PDF, front card on page 1, back card on page 2. Page size is 508×807mm (exactly 1920×3050px at 96dpi) — native card dimensions, no fitting to A4, no white space, no stretching. Each image tag is 508×807mm with `page-break-after: always`. `@page { size: 508mm 807mm; margin: 0; }` in CSS + `width: '508mm', height: '807mm'` in `page.pdf()` options.
 
-**Photo matching:** `services/matcher.js` exports `normalizeNameKey(str)` — strips diacritics via NFD decomposition (`normalize('NFD').replace(/[̀-ͯ]/g,'')`), lowercases, strips commas/separators, sorts tokens. Replicated client-side for live feedback. Diacritic stripping means "Escaño" and "Escano" match, "ñ"→"n", "é"→"e", etc.
+**Photo matching:** `services/matcher.js` exports `normalizeNameKey(str)` — strips diacritics via NFD decomposition (`normalize('NFD').replace(/[̀-ͯ]/g,'')`), lowercases, strips commas/separators, sorts tokens. Replicated client-side for live feedback. Diacritic stripping means "Escaño" and "Escano" match, "ñ"→"n", "é"→"e", etc. `buildPhotoMap` attaches a `duplicates` array to the returned Map (two files normalizing to the same key — last wins); `/prepare` returns them as `duplicateFiles` and the client shows a warning banner.
 
 **Multer latin1 decode:** Multer parses multipart headers as `latin1` but browsers send filenames as UTF-8. `buildPhotoMap` re-decodes `file.originalname` via `Buffer.from(file.originalname, 'latin1').toString('utf8')` before normalizing — without this, filenames containing ñ, é, etc. arrive garbled and fail to match. Same decode applied to `photoFile.originalname` and `sigFile.originalname` in `/regenerate`.
 
-**CSV parsing:** `services/csv.js` — `parseCSV(buffer, templateKey)`. Detects header row via keyword list. Dates go through two corrections:
-1. `correctMonthSpelling` — capitalisation fix → prefix expansion → Levenshtein ≤ 3
-2. `stripYear` — removes year from any format: `May 01 1990` → `May 01`, `1990-08-25` → `August 25`, `08/25/1990` → `August 25`
+**CSV parsing:** `services/csv.js` — `parseCSV(buffer, templateKey)`. Parser options: `relax_column_count: true` (Excel omits trailing empty cells — a short row must not abort the upload) and `bom: true`. Detects header row via keyword list. Dates go through two corrections:
+1. `correctMonthSpelling` — capitalisation fix → prefix expansion → Levenshtein fuzzy match **only for words ≥ 4 chars, threshold `min(3, floor(len/2))`** — without the guard, `TBD`/`TBA`/`N/A` silently became "May"
+2. `stripYear` — removes year from any format: `May 01 1990` → `May 01`, `1990-08-25`/`1990/08/25` → `August 25`, `08/25/1990` → `August 25`, trailing 2-digit years (`May 01 90`) also stripped
 
 **Download filenames:**
 - **New Employee / Calling Card / Multisys ID:** `LastName, FirstName-TemplateName-MMDDYY.png`. ZIP is `TemplateName-MMDDYY.zip`.
@@ -340,9 +342,13 @@ All 5 templates are shown in a unified `repeat(6, 1fr)` CSS grid (`#mainTemplate
 
   Required fields show a red `*` (Full Name, Position, Birthday for birthday; Full Name, Position, Years for anniversary; Full Name, Position, Email, Contact Number for calling-card). Birthday field has live month-spelling autocorrect on blur (hint shown inline to the right). Same autocorrect applies in the Edit Poster modal. All inputs have `autocomplete="off"`. Validation warnings (confirm banner): empty department, empty division (birthday/anniversary only), filename mismatch, **duplicate name**. Clicking Edit on a listed employee while another is mid-edit **auto-saves** the current form first.
 
-**Step 2 — Employee Preview**: table with Division and Birthday/DateHired/Years columns shown only for relevant templates. Email/Mobile shown for calling-card; Employee # shown for multisys-id; Department hidden for calling-card/multisys-id; Photo column hidden for calling-card; Signature column shown only for multisys-id. Photo column uses `id="thPhoto"` + `.th-photo` class (width 90px); upload column uses `id="thUpload"` + `.th-upload` (width 120px) — do NOT use nth-child selectors for these. All column header elements have IDs (`thDepartment`, `thDivision`, `thBirthday`, `thYears`, `thDateHired`, `thEmail`, `thMobile`, `thEmployeeNumber`, `thPhoto`, `thSignature`, `thUpload`) — both `onTemplateChange()` and `renderPreview()` manage visibility. The `✓ Found` badge in the Photo Match column has an inline trash button (`.photo-remove-btn`) — clicking removes the matched photo from `photoFiles` (CSV mode, same subset-token filter as inline upload) or clears `manualEmp.photoFile` (manual mode), then re-runs `submitPrepare()` so the row flips to `✗ Missing` with the upload button.
+**Step 2 — Employee Preview**: table with Division and Birthday/DateHired/Years columns shown only for relevant templates. Email/Mobile shown for calling-card; Employee # shown for multisys-id; Department hidden for calling-card/multisys-id; Photo column hidden for calling-card; Signature column shown only for multisys-id. Photo column uses `id="thPhoto"` + `.th-photo` class (width 90px); upload column uses `id="thUpload"` + `.th-upload` (width 120px) — do NOT use nth-child selectors for these. All column header elements have IDs (`thDepartment`, `thDivision`, `thBirthday`, `thYears`, `thDateHired`, `thEmail`, `thMobile`, `thEmployeeNumber`, `thPhoto`, `thSignature`, `thUpload`) — both `onTemplateChange()` and `renderPreview()` manage visibility. The `✓ Found` badge in the Photo Match column has an inline trash button (`.photo-remove-btn`) — clicking removes the matched photo from `photoFiles` (CSV mode, same subset-token filter as inline upload) or clears `manualEmp.photoFile` (manual mode), then re-runs `submitPrepare()` so the row flips to `✗ Missing` with the upload button. The subset-token filter NEVER removes a file whose key exactly matches a *different* employee ("Peter Garlan.png" is a subset of "Peter Psalm Garlan" but may be Peter Garlan's own photo). `submitPrepare()` uses a monotonic `_prepareSeq` token — out-of-order responses from overlapping calls are discarded.
+
+**Client state guards (do not remove):** `popstate` falls back to step 1 when `currentJobId` is null (Back after Start Over reached a stale gallery whose Edit POSTed `/regenerate/null/0`); Start Over and `clearAllFields()` (template switch) clear `currentJobId`/`currentEmployees` + gallery DOM. `showGallery(jobId, count, names)` builds cards from the server's rendered-names list (falls back to `photoFound` filter when absent — dev reload path). Lightbox uses `_posterVersions[index]` for cache-busting (set on regenerate) — NOT `Date.now()`, which re-downloaded every full PNG per prev/next. Manual-entry edit-load strips `MTC-`/`+63` prefixes and rebuilds extra mobile rows + signature state; the mid-edit auto-save normalizes identically to `commitEmployee` (prefixes, joined mobiles, `signatureFile`). Signatures are optional everywhere (`/prepare` block and manual-entry requirement removed 2026-07-13).
 
 **Step 3 — Progress + Gallery**: CSS border spinner. Edit modal includes Division + Birthday fields for Birthday template; Years for Anniversary. Lightbox supports prev/next navigation (‹ › buttons + ← → arrow keys, Esc to close).
+
+**Edit modal:** `checkEditChanged()` must include `!!editSignatureFile` in its `changed` expression — without it a signature-only replacement leaves the Regenerate button disabled. `/regenerate` preserves `birthdayDate`/`dateHired` on the poster record (falling back to the previous poster's values) — `/download` builds MM-DD filename prefixes from them.
 
 **Edit modal — Multisys ID specifics:**
 - Full Name is split into separate **First Name** / **Last Name** inputs (`#editFirstName`, `#editLastName`) — Department field is hidden.
@@ -452,19 +458,33 @@ All of the above are also set as HuggingFace secrets. `TURSO_AUTH_TOKEN` must be
 ```bash
 ./deploy.sh "your commit message"
 ```
-Handles GitHub push + HuggingFace orphan branch with git-lfs for template PNGs in one command.
+Handles GitHub push + HuggingFace orphan branch with git-lfs for template PNGs in one command. The script is failure-safe: an EXIT trap always returns the checkout to `main` and restores the 7 gitignored template PNGs (backed up to a `mktemp -d` dir before the branch dance), and it recovers cleanly when re-run after a stranded previous run.
 
 ## Security & Limits
 
-**Multer upload limits:** `/prepare` enforces `fileSize: 20 MB` and `files: 501` (500 photos + 1 CSV). Larger uploads are rejected by multer before reaching the route handler.
+See `HARDENING-2026-07-14.md` for the full 29-finding security/correctness audit record and the revert procedure (`git reset --hard backup-pre-hardening`).
 
-**Job store TTL:** The in-memory `jobs` Map is evicted every 10 minutes; entries older than 2 hours are deleted. `job.createdAt` is set at `/prepare` time. The interval uses `.unref()` so it doesn't block process exit.
+**Auth mounts (server.js):** Express mount paths match at `/` boundaries only — `app.use('/download', requireAccess)` does NOT cover `/download-pdf`. Protected mounts: `/index.html`, `/prepare`, `/generate`, `/preview`, `/download`, `/download-pdf`, `/regenerate`, `/job`, `/qr-preview` (all `requireAccess`) and `/reload-template` (`requireAdmin`). Any NEW data-returning route must be added to this block.
+
+**Fail-closed boot:** If `SPACE_ID` (HuggingFace) or `NODE_ENV=production` is set but Google OAuth creds are missing, the server exits at startup instead of silently running with auth off.
+
+**Session cookie:** `trust proxy 1` + `{ secure: 'auto', httpOnly: true, sameSite: 'lax' }`.
+
+**Async route safety:** All async auth/admin routes are wrapped in `asyncH()` (Express 4 doesn't catch async throws — unwrapped rejections hang the request); a JSON error middleware terminates forwarded errors. Query params that could be arrays (`suffix`, `mobile`) are coerced with `String()`; `Content-Disposition` filenames pass through `headerSafe()` (strips quotes/control chars).
+
+**Multer upload limits:** `/prepare` enforces `fileSize: 20 MB` and `files: 501` (500 photos + 1 CSV), plus a 300 MB total Content-Length cap (413) before multer buffers into memory.
+
+**Job store TTL:** The in-memory `jobs` Map is evicted every 10 minutes; entries older than 2 hours are deleted. `job.createdAt` is set at `/prepare` time. The interval uses `.unref()` so it doesn't block process exit. `/job/:id/reset` returns 409 while `status === 'generating'` (a mid-generation reset would let a second `/generate` interleave pushes and corrupt every index-based lookup).
 
 **Static file guard:** When `AUTH_ENABLED`, `app.use('/admin.html', → 403)` is registered before `express.static` so the raw dashboard HTML cannot be fetched without going through `/admin` + `requireAdmin`.
 
-**XSS prevention in admin.html:** All user-supplied strings inserted into `innerHTML` (history table employee names, errors table employee_name) are passed through `esc()` — HTML-escapes `&`, `<`, `>`, `"`.
+**XSS prevention in admin.html:** ALL user-influenced strings inserted into `innerHTML` go through `esc()` — including the pending/approved/denied user tables (`u.name` is the Google display name = attacker-controlled; unescaped it enabled self-approval XSS), the errors table (message also lands in a `title="…"` attribute — `esc()` handles quotes), and template CSS classes. `enc()` additionally encodes `'` for onclick contexts. Do not add an unescaped interpolation.
 
-**SSE reconnect guard:** The `/generate` re-entry guard sends a synthetic `complete` only when `job.status === 'done'`; for `error` it sends an error event; for `generating` it closes the stream empty so EventSource retries in ~3s rather than receiving a stale partial count.
+**XSS prevention in poster rendering:** see the escaping bullet under Poster rendering — `escapeHtml()` + function-form `replaceAll` in `services/poster.js`.
+
+**SSE reconnect guard:** The `/generate` re-entry guard sends a synthetic `complete` (with `count` + `names`) only when `job.status === 'done'`; for `error` it sends an error event; for `generating` it closes the stream empty so EventSource retries in ~3s. Client-side, `onerror` only surfaces an error when `readyState === CLOSED` and no complete arrived — transient blips auto-retry; `runGenerate` closes any previous EventSource before opening a new one.
+
+**DB:** indexes on `history.generated_at`, `render_errors.occurred_at`, `users.status` (created in `db.init()`); `upsertPending` refreshes `name` via `ON CONFLICT(email) DO UPDATE` (status/requested_at untouched).
 
 ## V1 Backups / Future Work
 

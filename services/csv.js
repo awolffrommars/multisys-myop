@@ -29,13 +29,17 @@ function correctMonthSpelling(dateStr) {
     if (hits.length === 1) return dateStr.replace(firstWord, hits[0]);
   }
 
-  // Fuzzy match via Levenshtein (threshold 3)
-  let best = null, bestDist = Infinity;
-  for (const m of MONTHS) {
-    const d = levenshtein(firstWord, m);
-    if (d < bestDist) { bestDist = d; best = m; }
+  // Fuzzy match via Levenshtein — threshold scales with word length so short
+  // non-dates ("TBD", "N/A", "TBA") can't be silently corrected into a month
+  if (firstWord.length >= 4) {
+    let best = null, bestDist = Infinity;
+    for (const m of MONTHS) {
+      const d = levenshtein(firstWord, m);
+      if (d < bestDist) { bestDist = d; best = m; }
+    }
+    const maxDist = Math.min(3, Math.floor(firstWord.length / 2));
+    if (bestDist <= maxDist) return dateStr.replace(firstWord, best);
   }
-  if (bestDist <= 3) return dateStr.replace(firstWord, best);
 
   return dateStr; // unrecognisable — leave as-is
 }
@@ -43,8 +47,8 @@ function correctMonthSpelling(dateStr) {
 function stripYear(dateStr) {
   if (!dateStr) return dateStr;
 
-  // ISO: YYYY-MM-DD → Month DD
-  const iso = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  // ISO-style: YYYY-MM-DD or YYYY/MM/DD → Month DD
+  const iso = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (iso) {
     const m = MONTHS[parseInt(iso[2], 10) - 1];
     return m ? `${m} ${iso[3].padStart(2, '0')}` : dateStr;
@@ -57,8 +61,13 @@ function stripYear(dateStr) {
     return m ? `${m} ${num[2].padStart(2, '0')}` : dateStr;
   }
 
-  // Text format with trailing 4-digit year: "May 01 1990" or "May 01, 1990"
-  return dateStr.replace(/,?\s+\d{4}$/, '').trim();
+  // Text format with trailing 2- or 4-digit year: "May 01 1990", "May 01, 90"
+  return dateStr.replace(/,?\s+(\d{4}|\d{2})$/, (match, yr, offset) => {
+    // Don't strip a 2-digit day mistaken for a year: only strip 2 digits when
+    // something date-like already precedes them (e.g. "May 01 90" has day 01)
+    if (yr.length === 2 && !/\d/.test(dateStr.slice(0, offset))) return match;
+    return '';
+  }).trim();
 }
 
 function looksLikeHeader(row) {
@@ -70,6 +79,8 @@ function parseCSV(buffer, templateKey = 'new-employee') {
     skip_empty_lines: true,
     trim: true,
     relax_quotes: true,
+    relax_column_count: true, // Excel omits trailing empty cells — a short row must not abort the upload
+    bom: true,                // strip UTF-8 BOM so the first cell doesn't gain an invisible char
   });
 
   if (records.length === 0) return [];
