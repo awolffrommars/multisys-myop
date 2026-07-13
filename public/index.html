@@ -487,8 +487,8 @@
     }
 
     .lightbox img {
-      max-width: 100%;
-      max-height: calc(100vh - 100px);
+      max-width: 88%;
+      max-height: calc(100vh - 160px);
       border-radius: 8px;
       object-fit: contain;
     }
@@ -1524,7 +1524,7 @@
 
 
   const _isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const _sigHint = _isDev ? '(optional)' : '(required)';
+  const _sigHint = '(optional)';
   document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
   document.getElementById('editSignatureLabel').textContent = `Replace signature ${_sigHint}`;
 
@@ -1604,10 +1604,11 @@
     }
     clearTimeout(qrDebounceTimer);
     qrDebounceTimer = setTimeout(() => {
-      const digits = mobile.replace(/\D/g, '');
+      const digits = mobile.replace(/\D/g, '').replace(/^00/, '');
       let uri;
       if (/^09\d{9}$/.test(digits))       uri = 'tel:+63' + digits.slice(1);
       else if (/^639\d{9}$/.test(digits)) uri = 'tel:+' + digits;
+      else if (/^9\d{9}$/.test(digits))   uri = 'tel:+63' + digits;
       else if (mobile.startsWith('+') && digits.length >= 10) uri = 'tel:+' + digits;
       else uri = 'tel:' + digits;
       document.getElementById('manualQrImg').src = '/qr-preview?mobile=' + encodeURIComponent(mobile);
@@ -2476,10 +2477,6 @@
         }
       }
     }
-    if (isMultisysId && !_isDev && !currentManualSignature) {
-      setManualError('Signature is required.');
-      return;
-    }
     if (issues.length) {
       const msg = issues.join(' and ');
       document.getElementById('deptConfirmMsg').textContent =
@@ -3038,6 +3035,7 @@
   }
 
   function showGallery(jobId, count) {
+    updateStepIndicator(3, true); // generation finished — all dots green
     currentSuffix = getFileSuffix();
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
@@ -3289,12 +3287,12 @@
 
   // ── Step management ──────────────────────────────────────────────────────────
 
-  function updateStepIndicator(n) {
+  function updateStepIndicator(n, complete) {
     [1, 2, 3].forEach(i => {
       const dot  = document.getElementById('sdot'  + i);
       const line = document.getElementById('sline' + i);
-      if (dot)  dot.className  = 'step-dot'  + (i < n ? ' done' : (i === n ? ' active' : ''));
-      if (line) line.className = 'step-line' + (i < n ? ' done' : '');
+      if (dot)  dot.className  = 'step-dot'  + ((i < n || complete) ? ' done' : (i === n ? ' active' : ''));
+      if (line) line.className = 'step-line' + ((i < n || complete) ? ' done' : '');
     });
     const lbl = document.getElementById('stepLabel');
     if (lbl) { lbl.textContent = `Step ${n} of 3`; lbl.style.color = n === 3 ? '#22c55e' : '#888'; }
@@ -3876,7 +3874,7 @@
     if (!user.email) return;
     const bar = document.getElementById('logoutBar');
     const adminLink = user.isAdmin
-      ? `<a href="/admin" style="font-size:12px;color:#0099ff;text-decoration:none;font-weight:500">Admin</a>`
+      ? `<a href="/admin" target="_blank" rel="noopener" style="font-size:12px;color:#0099ff;text-decoration:none;font-weight:500">Admin</a>`
       : '';
     bar.innerHTML = `<span style="font-size:12px;color:#555">${user.email}</span>
       <span style="color:#333;margin:0 10px;font-size:12px">|</span>

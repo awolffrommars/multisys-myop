@@ -10,18 +10,23 @@ const LAUNCH_OPTIONS = {
 };
 
 function formatPhoneDisplay(num) {
-  const digits = num.replace(/^\+63/, '');
-  if (digits.length === 10) return '+63' + digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
-  if (digits.length === 9)  return '+63' + digits.slice(0,2) + '-' + digits.slice(2,5) + '-' + digits.slice(5);
+  // Strip everything but digits so dashes/spaces in the source (CSV or edit modal) don't break formatting
+  let digits = num.replace(/\D/g, '').replace(/^00/, '');
+  if (digits.startsWith('63')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = digits.slice(1);
+  if (digits.length === 10) return '+63 ' + digits.slice(0,3) + ' ' + digits.slice(3,6) + ' ' + digits.slice(6);
+  if (digits.length === 9)  return '+63 ' + digits.slice(0,2) + ' ' + digits.slice(2,5) + ' ' + digits.slice(5);
   return num;
 }
 
 function normalizePhone(raw) {
   if (!raw) return null;
-  const digits = raw.replace(/\D/g, '');
+  // Accept any punctuation/spacing and any common PH prefix: 09…, 639…, +63 9…, 0063 9…, bare 9…
+  const digits = raw.replace(/\D/g, '').replace(/^00/, '');
   if (!digits) return null;
   if (/^09\d{9}$/.test(digits)) return 'tel:+63' + digits.slice(1);
   if (/^639\d{9}$/.test(digits)) return 'tel:+' + digits;
+  if (/^9\d{9}$/.test(digits)) return 'tel:+63' + digits;
   if (raw.trim().startsWith('+') && digits.length >= 10) return 'tel:+' + digits;
   return 'tel:' + digits;
 }
@@ -166,12 +171,7 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       if (mobileNumbers.length >= 3) {
         html = html.replace('</head>', '<style>.phone { font-size: 28px !important; }</style></head>');
       }
-      const nameLen = (data.fullName || '').length;
-      if (nameLen > 26) {
-        html = html.replace('</head>', '<style>.name-overlay { font-size: 55px !important; }</style></head>');
-      } else if (nameLen > 20) {
-        html = html.replace('</head>', '<style>.name-overlay { font-size: 70px !important; }</style></head>');
-      }
+      // Name/position sizing handled by the measured AUTOFIT pass after page load
     }
 
     if (!signatureSrc && templateKey === 'multisys-id') {
@@ -235,14 +235,91 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
     };
     const vp = VIEWPORTS[templateKey] || { width: 1920, height: 1081 };
     await page.setViewport(vp);
-    // New-employee: reduce font size by 50% when name exceeds 24 characters
-    if (templateKey === 'new-employee' && (data.fullName || '').length > 24) {
-      console.log(`[poster] Long name (${(data.fullName||'').length} chars) — reducing font to 28px: "${data.fullName}"`);
-      html = html.replace('</head>', '<style>.employee-name { font-size: 29px !important; text-align: center !important; }</style></head>');
-    }
+    // New-employee: name auto-fit happens after page load (measured, not char-count based)
 
     await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
     await page.evaluate(async () => { await document.fonts.ready; });
+
+    // Auto-fit text overlays: measure the real rendered text width and shrink
+    // the font 1px at a time until it fits its column, so long names stay
+    // centered/contained instead of overflowing. `max` is an explicit pixel
+    // limit for overlays whose element is wider than the safe text area;
+    // without it the parent column width is used.
+    // `lines: 2` = the element may wrap to 2 lines (template has no nowrap);
+    // shrink only when it exceeds 2 lines or a single word overflows the column.
+    // Entries without `lines` are single-line nowrap overlays measured via Range.
+    // Entries sharing a `group` are equalized after fitting — all members take
+    // the smallest fitted size (first/last name must always match).
+    // `singleLineMin`: prefer a single line — shrink down to this size first;
+    // only fall back to wrapping (then shrinking) if it still doesn't fit.
+    const AUTOFIT = {
+      'new-employee': [{ sel: '.employee-name', lines: 2, singleLineMin: 32 }],
+      'birthday':     [{ sel: '.employee-name', lines: 2 }],
+      'anniversary':  [{ sel: '.employee-firstname', max: 970, group: 'name' }, { sel: '.employee-lastname', max: 970, group: 'name' }],
+      'calling-card': [{ sel: '.name-overlay', max: 1400 }, { sel: '.position-overlay', max: 1400 }],
+      'multisys-id':  [{ sel: '.first-name', max: 1700, group: 'name' }, { sel: '.last-name', max: 1700, group: 'name' }, { sel: '.position-text', max: 1700 }],
+    };
+    if (AUTOFIT[templateKey]) {
+      await page.evaluate((fits, tKey) => {
+        const textWidth = (el) => {
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          return r.getBoundingClientRect().width;
+        };
+        const lineCount = (el) => {
+          const lh = parseFloat(getComputedStyle(el).lineHeight);
+          return Math.max(1, Math.round(el.getBoundingClientRect().height / lh));
+        };
+        const fitted = [];
+        for (const { sel, max, lines, group, singleLineMin } of fits) {
+          const el = document.querySelector(sel);
+          if (!el || !el.textContent.trim()) continue;
+          const limit = max || el.parentElement.clientWidth;
+          let size = parseFloat(getComputedStyle(el).fontSize);
+          if (singleLineMin) {
+            // Try to keep it on one line by shrinking down to singleLineMin
+            const orig = size;
+            el.style.whiteSpace = 'nowrap';
+            while (textWidth(el) > limit && size > singleLineMin) {
+              size -= 1;
+              el.style.setProperty('font-size', size + 'px', 'important');
+            }
+            if (textWidth(el) <= limit) { fitted.push({ el, size, group }); continue; }
+            // Still too wide at the minimum — revert and let it wrap instead
+            el.style.whiteSpace = '';
+            size = orig;
+            el.style.setProperty('font-size', size + 'px', 'important');
+          }
+          const overflows = lines > 1
+            ? () => el.scrollWidth > limit || lineCount(el) > lines
+            : () => textWidth(el) > limit;
+          while (overflows() && size > 16) {
+            size -= 1;
+            el.style.setProperty('font-size', size + 'px', 'important');
+          }
+          fitted.push({ el, size, group });
+        }
+        // Equalize grouped elements to the smallest fitted size
+        const groups = {};
+        for (const f of fitted) if (f.group) (groups[f.group] = groups[f.group] || []).push(f);
+        for (const list of Object.values(groups)) {
+          const min = Math.min(...list.map(f => f.size));
+          for (const f of list) f.el.style.setProperty('font-size', min + 'px', 'important');
+        }
+        // Birthday: when the name wraps, lift the whole text block by HALF the
+        // extra line height — splits the crowding between the "Happy Birthday"
+        // art above and #MomentsAtMultisys below
+        if (tKey === 'birthday') {
+          const name = document.querySelector('.employee-name');
+          const block = document.querySelector('.text-block');
+          if (name && block) {
+            const lh = parseFloat(getComputedStyle(name).lineHeight);
+            const extra = Math.max(0, name.getBoundingClientRect().height - lh);
+            if (extra > 0) block.style.top = (block.getBoundingClientRect().top - extra / 2) + 'px';
+          }
+        }
+      }, AUTOFIT[templateKey], templateKey);
+    }
 
     const screenshot = await page.screenshot({ type: 'png', fullPage: false });
 

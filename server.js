@@ -172,7 +172,7 @@ if (AUTH_ENABLED) {
       db.getUsersByStatus('pending'),
       db.getUsersByStatus('approved'),
       db.getUsersByStatus('denied'),
-      db.getHistory(30),
+      db.getHistory(Math.min(parseInt(req.query.historyDays, 10) || 30, 3650)),
       db.getErrors(50),
       db.getStats(),
     ]);
@@ -371,10 +371,8 @@ app.post('/prepare', upload.fields([
       signatureFound: templateKey === 'multisys-id' ? !!findPhoto(emp.fullName, signatureMap) : undefined,
     }));
 
-    if (AUTH_ENABLED && templateKey === 'multisys-id') {
-      const missing = preview.filter(e => !e.signatureFound).map(e => e.fullName);
-      if (missing.length) return res.status(400).json({ error: `Signature required for: ${missing.join(', ')}` });
-    }
+    // Signatures are optional — posters render with the signature overlay hidden
+    // when absent, and one can be added later via the edit modal (/regenerate)
 
     const jobId = crypto.randomUUID();
     jobs.set(jobId, { employees, photoMap, signatureMap, posters: [], photos: [], signatures: [], status: 'ready', templateKey, noPhotoTemplate, createdAt: Date.now() });
@@ -396,7 +394,8 @@ app.get('/generate/:jobId', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     if (job.status === 'done') {
       // Generation complete — send the real count so a reconnected client gets a consistent gallery
-      res.write(`data: ${JSON.stringify({ type: 'complete', count: job.posters.length })}\n\n`);
+      // (front+back pairs count as one poster)
+      res.write(`data: ${JSON.stringify({ type: 'complete', count: job.posters.filter(p => p.side !== 'back').length })}\n\n`);
     } else if (job.status === 'error') {
       res.write(`data: ${JSON.stringify({ type: 'error', message: 'Generation failed.' })}\n\n`);
     }
@@ -493,12 +492,14 @@ app.get('/generate/:jobId', async (req, res) => {
     }
 
     job.status = 'done';
+    // Front+back pairs count as one poster (calling-card, multisys-id)
+    const frontPosters = job.posters.filter(p => p.side !== 'back');
     if (AUTH_ENABLED && req.user && db) {
       const durationMs = Date.now() - job.startedAt;
-      try { await db.logHistory(req.user.email, job.templateKey, job.posters.length, job.posters.map(p => p.name), durationMs); } catch {}
+      try { await db.logHistory(req.user.email, job.templateKey, frontPosters.length, frontPosters.map(p => p.name), durationMs); } catch {}
     }
 
-    emit({ type: 'complete', count: job.posters.length });
+    emit({ type: 'complete', count: frontPosters.length });
     res.end();
   } catch (err) {
     job.status = 'error';

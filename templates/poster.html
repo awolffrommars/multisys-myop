@@ -69,13 +69,10 @@
       --photo-left:   1116px;  /* left edge of the photo area     */
       --photo-top:     136px;  /* top edge of the photo area      */
       --photo-width:   544px;  /* width of the photo area         */
-      --photo-height:  648px;  /* height of the photo area        */
+      --photo-height:  645px;  /* height of the photo area — ends flush at the white card top (y=781); 648 overlapped it by 3px causing orange corner spikes */
 
       --text-left:    1116px;  /* same x as photo (text centered in photo column) */
       --text-width:    544px;  /* same width as photo column      */
-      --name-top:      816px;  /* top of the Full Name text       */
-      --pos-top:       860px;  /* top of the Position text        */
-      --dept-top:      893px;  /* top of the Department text      */
     }
 
     .poster {
@@ -113,19 +110,27 @@
       object-fit: cover;
       object-position: center top; /* crop from the top so face stays visible */
       display: block;
+      position: relative;
+      top: 30px; /* headroom above the head; bottom 30px cropped by overflow:hidden */
     }
 
-    /* Text overlays — sit on the white card area below the photo */
-    .text-overlay {
+    /* Text block — flex column vertically centered in the white card strip
+       below the photo (photo bottom 784 → card bottom 983) so spacing above
+       and below the details stays even whether or not lines wrap */
+    .text-block {
       position: absolute;
       left: var(--text-left);
+      top: 781px;
       width: var(--text-width);
+      height: 202px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
       text-align: center;
       z-index: 10;
     }
 
     .employee-name {
-      top: var(--name-top);
       font-family: 'Montserrat', sans-serif;
       font-size: 36px;
       font-weight: 800;       /* ExtraBold */
@@ -133,12 +138,14 @@
       text-transform: uppercase;
       letter-spacing: -0.3px;
       line-height: 1.1;
-      white-space: nowrap;
       text-align: center;
+      margin-bottom: 5px;
     }
 
+    /* Empty fields must not leave their margin behind */
+    .employee-name:empty, .employee-position:empty, .employee-department:empty { display: none; }
+
     .employee-position {
-      top: var(--pos-top);
       font-family: 'Montserrat', sans-serif;
       font-size: 27px;
       font-weight: 600;       /* SemiBold */
@@ -148,10 +155,10 @@
       line-height: 1.15;
       word-wrap: break-word;
       text-align: center;
+      margin-bottom: 3px;
     }
 
     .employee-department {
-      top: var(--dept-top);
       font-family: 'Montserrat', sans-serif;
       font-size: 27px;
       font-weight: 400;       /* Regular */
@@ -173,10 +180,12 @@
       <img src="{{PHOTO_BASE64}}" alt="" />
     </div>
 
-    <!-- Text fields overlaid on the white card section -->
-    <div class="text-overlay employee-name" style="top: var(--name-top)">{{FULL_NAME}}</div>
-    <div class="text-overlay employee-position" style="top: var(--pos-top)">{{POSITION}}</div>
-    <div class="text-overlay employee-department" style="top: var(--dept-top)">{{DEPARTMENT}}</div>
+    <!-- Text fields vertically centered in the white card section -->
+    <div class="text-block">
+      <div class="employee-name">{{FULL_NAME}}</div>
+      <div class="employee-position">{{POSITION}}</div>
+      <div class="employee-department">{{DEPARTMENT}}</div>
+    </div>
 
   </div>
 </body>

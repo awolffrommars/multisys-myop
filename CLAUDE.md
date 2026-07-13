@@ -79,6 +79,11 @@ POST /regenerate/:id/:n — re-renders a single poster with updated data/photo/s
 POST /reload-template   — hot-reloads all template PNGs from disk without restarting
 ```
 
+**Template HTML loading:** `services/poster.js` reads template HTML files fresh from disk on every render call (no startup cache) — editing a template HTML file takes effect on the next generation with no server restart required. Only `server.js` itself requires a restart for code changes.
+
+```
+```
+
 **In-memory job store:** `jobs` Map keyed by UUID. Each job holds `{ employees, photoMap, signatureMap, posters[], photos[], signatures[], status, templateKey }`. `photos[]` and `signatures[]` store `{base64, format}` per successfully rendered poster (1:1 index with `posters[]`) so `/regenerate` can re-use the originals without re-uploading. Puppeteer browser singleton lives for one batch (`closeBrowser()` in the `finally` block).
 
 **Parallel rendering:** `CONCURRENCY = 2` in `server.js`. The generate loop slices employees into batches of 2 and runs `Promise.all` per batch. Results are pushed in original order after `Promise.all` resolves to keep `posters[]` / `photos[]` indices aligned.
@@ -88,13 +93,16 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 **SSE events** from `GET /generate/:jobId`:
 ```js
 { type: 'progress', row, name, position, department, division, birthdayDate, status: 'processing'|'done'|'skipped'|'error', message? }
-{ type: 'complete', count }
+{ type: 'complete', count }   // count = front posters only; front+back pairs count as 1 (calling-card, multisys-id)
 { type: 'error', message }
 ```
 
+`db.logHistory` also logs the front-only count and front-only names (`job.posters.filter(p => p.side !== 'back')`).
+
 **Poster rendering:** `services/poster.js` — `renderPoster(data, photoData, templateBase64, config, templateKey, signatureData)`. Loads HTML template based on `templateKey`, replaces all tokens via `.replaceAll()` (not `.replace()` — ensures duplicate tokens in a template are all substituted), screenshots at 1920×1081.
-- **New Employee:** Full Name has `white-space: nowrap`. If name length > 24 chars, injects `font-size: 29px !important` via a `<style>` tag before `</head>`. Font wait uses `await page.evaluate(async () => await document.fonts.ready)`.
-- **Birthday:** Full Name renders at fixed 57px with `white-space: nowrap` — no shrinking applied.
+- **Auto-fit (all templates):** After `document.fonts.ready`, an `AUTOFIT` pass in `renderPoster` measures each configured overlay's real rendered text width (via `document.createRange()` — NOT `scrollWidth`, which is floored at element width for fixed-width overlays) and shrinks font 1px at a time (floor 16px) until it fits. Uses `el.style.setProperty('font-size', ..., 'important')` so it beats the `config.nameFontSize !important` injection. Limits: new-employee/birthday name → parent column width; anniversary first/last name → 1030px (photo starts x=1155); calling-card name+position → 1400px; multisys-id first/last/position → 1700px. This replaced ALL char-count guards (new-employee >24 chars, calling-card >20/>26 chars) — do not re-add them.
+- **New Employee:** Full Name has `white-space: nowrap`. Font wait uses `await page.evaluate(async () => await document.fonts.ready)`. Photo img has `position:relative; top:30px` — 30px headroom above the head, bottom 30px cropped by `overflow:hidden`.
+- **Birthday:** Full Name renders at 57px with `white-space: nowrap` (auto-fit shrinks only if it overflows the 780px block).
 - **Anniversary:** Full Name is split into `{{FIRST_NAME}}` (all tokens except last) and `{{LAST_NAME}}` (last token) in `poster.js` before token replacement. A single-word name sets `lastName = ''` and emits a `console.warn` — no crash, last-name overlay is blank.
 - **Calling Card:** No photo required. QR code auto-generated from contact number via `qrcode` npm package. Phone normalized via `normalizePhone()`: `09xxxxxxxxx` → `tel:+639xxxxxxxxx`. QR passed as `{{QR_BASE64}}` data URL. Multisys bars logo (`public/msys-bars-logo.png`) overlaid on QR via `{{LOGO_BASE64}}` token with `mix-blend-mode: multiply`. Viewport: 1920×1080.
 - **Multisys ID:** Employee photo required. Signature optional — uploaded separately (batch zone or manual file input), matched by employee name same as photos. `{{SIGNATURE_BASE64}}` token; when absent, `#sigOverlay` is hidden via injected CSS (`display:none`). Tokens cover Employee Information (employeeNumber, address, phoneNumber, philhealth, sss, tin, hdmf) and Emergency Contact (contactName, contactAddress, contactNumber). Viewport: 1920×1080.
@@ -128,12 +136,11 @@ Canvas: 1920×1081. CSS variable tuning:
 --photo-height:  648px;
 --text-left:    1116px;
 --text-width:    544px;
---name-top:      816px;   /* Full Name */
---pos-top:       860px;   /* Position */
---dept-top:      893px;   /* Department */
 ```
 
-Font sizes: Full Name 36px/800 (29px if name > 24 chars), Position 27px/600, Department 27px/400. All `color: #000`, all `text-align: center`.
+**Text block:** name/position/department live in a `.text-block` flex column (`top:784px; height:199px` — the white card strip measured from the template PNG: photo bottom 784 → card bottom 983) with `justify-content:center`, so spacing above and below the details is always even, wrapped lines included. Gaps: name→position 5px, position→department 3px. The old `--name-top`/`--pos-top`/`--dept-top` vars were removed (config injection still writes them but nothing reads them).
+
+Font sizes: Full Name 36px/800 (auto-fit shrinks to fit 544px column), Position 27px/600, Department 27px/400. All `color: #000`, all `text-align: center`.
 
 ## Birthday Poster Template (`templates/poster-birthday.html`)
 
@@ -153,7 +160,7 @@ Canvas: 1920×1081. Source template PNG: `Birthday Poster_Template.png` (2561×1
 --date-top:      81px;   /* template y=114  → canvas top=86, then -5 nudge */
 ```
 
-**Text layout:** All four text fields (name, position, department, division) live inside a single `.text-block` flex-column div anchored at `--name-top`. They flow downward with fixed `margin-bottom` gaps (23px / 14px / 19px) so a wrapping name pushes the rows below it down cleanly.
+**Text layout:** All four text fields (name, position, department, division) live inside a single `.text-block` flex-column div anchored at `--name-top`. They flow downward with fixed `margin-bottom` gaps: name→position 23px, position→department 14px, department→division 12px. A wrapping name pushes rows below it down cleanly.
 
 Font sizes: Full Name 57px/700 (`white-space: nowrap` — fixed, no shrinking), Position 36px/500, Department/Division 36px/400. All `color: #fff`.
 Date: 38px/700, white, `text-transform: uppercase`, `text-align: right`.
@@ -225,9 +232,9 @@ Canvas: 1920×1152. Template PNG: `Calling-Card-FRONT_Template.png`. Back: `Call
 .qr               { left:1326px; top:546px; width:474px; height:474px; }
 ```
 
-**Phone rendering:** `{{PHONE_LINES}}` token replaced by `poster.js` with one `<div class="phone">` containing all numbers joined by ` / `. Numbers normalised to `+63XXX-XXX-XXXX` format via `formatPhoneDisplay()`. QR uses first number only. QR logo: `height:136px`.
+**Phone rendering:** `{{PHONE_LINES}}` token replaced by `poster.js` with one `<div class="phone">` containing all numbers joined by ` / `. Numbers displayed as `+63 XXX XXX XXXX` (spaces, not dashes) via `formatPhoneDisplay()`, which strips ALL non-digits plus leading `00`/`63`/`0` first — so any source format (`09…`, `0961-018-8389`, `+63 9…`, `0063 9…`, bare `9…`, dots/parens) renders correctly. `normalizePhone()` (QR URI) is equally tolerant and has a client-side mirror in `index.html` (QR preview URI) — keep the two in sync. QR uses first number only. QR logo: `height:136px`.
 
-**Long-name guard:** name > 26 chars → 55px; > 20 chars → 70px (injected via `<style>`).
+**Long-name sizing:** handled by the measured AUTOFIT pass (name + position, 1400px limit) — the old >20/>26 char guards are gone.
 
 Fields: `{{TEMPLATE_BASE64}}`, `{{FULL_NAME}}`, `{{POSITION}}`, `{{EMAIL}}`, `{{PHONE_LINES}}`, `{{QR_BASE64}}`, `{{LOGO_BASE64}}`.
 QR logo overlay: `public/msys-bars-logo.png` passed as `{{LOGO_BASE64}}`; `height:136px` with `mix-blend-mode:multiply`.
@@ -333,7 +340,7 @@ All 5 templates are shown in a unified `repeat(6, 1fr)` CSS grid (`#mainTemplate
 
   Required fields show a red `*` (Full Name, Position, Birthday for birthday; Full Name, Position, Years for anniversary; Full Name, Position, Email, Contact Number for calling-card). Birthday field has live month-spelling autocorrect on blur (hint shown inline to the right). Same autocorrect applies in the Edit Poster modal. All inputs have `autocomplete="off"`. Validation warnings (confirm banner): empty department, empty division (birthday/anniversary only), filename mismatch, **duplicate name**. Clicking Edit on a listed employee while another is mid-edit **auto-saves** the current form first.
 
-**Step 2 — Employee Preview**: table with Division and Birthday/DateHired/Years columns shown only for relevant templates. Email/Mobile shown for calling-card; Employee # shown for multisys-id; Department hidden for calling-card/multisys-id; Photo column hidden for calling-card; Signature column shown only for multisys-id. Photo column uses `id="thPhoto"` + `.th-photo` class (width 90px); upload column uses `id="thUpload"` + `.th-upload` (width 120px) — do NOT use nth-child selectors for these. All column header elements have IDs (`thDepartment`, `thDivision`, `thBirthday`, `thYears`, `thDateHired`, `thEmail`, `thMobile`, `thEmployeeNumber`, `thPhoto`, `thSignature`, `thUpload`) — both `onTemplateChange()` and `renderPreview()` manage visibility.
+**Step 2 — Employee Preview**: table with Division and Birthday/DateHired/Years columns shown only for relevant templates. Email/Mobile shown for calling-card; Employee # shown for multisys-id; Department hidden for calling-card/multisys-id; Photo column hidden for calling-card; Signature column shown only for multisys-id. Photo column uses `id="thPhoto"` + `.th-photo` class (width 90px); upload column uses `id="thUpload"` + `.th-upload` (width 120px) — do NOT use nth-child selectors for these. All column header elements have IDs (`thDepartment`, `thDivision`, `thBirthday`, `thYears`, `thDateHired`, `thEmail`, `thMobile`, `thEmployeeNumber`, `thPhoto`, `thSignature`, `thUpload`) — both `onTemplateChange()` and `renderPreview()` manage visibility. The `✓ Found` badge in the Photo Match column has an inline trash button (`.photo-remove-btn`) — clicking removes the matched photo from `photoFiles` (CSV mode, same subset-token filter as inline upload) or clears `manualEmp.photoFile` (manual mode), then re-runs `submitPrepare()` so the row flips to `✗ Missing` with the upload button.
 
 **Step 3 — Progress + Gallery**: CSS border spinner. Edit modal includes Division + Birthday fields for Birthday template; Years for Anniversary. Lightbox supports prev/next navigation (‹ › buttons + ← → arrow keys, Esc to close).
 
@@ -355,7 +362,7 @@ Page layout: `.main` max-width is `900px`. `.page` uses `justify-content: flex-s
 - **Modal ARIA (C2):** Edit modal box has `role="dialog" aria-modal="true" aria-labelledby="editModalTitle"`; `openEditModal()` saves `_editModalTrigger = document.activeElement`, auto-focuses first visible input via `requestAnimationFrame`; `closeEditModal()` restores focus to trigger; Tab key trapped within `.edit-modal-box` focusable elements; Esc key closes modal
 - **Touch targets (H1):** `.zone-remove-btn` enlarged to `min-width: 44px; min-height: 44px`; `.mode-tab` padding `12px 8px`
 - **Alt text (H2):** Paired gallery images use `alt="${name} — front"` / `alt="${name} — back"` (was generic)
-- **Step indicator (M1):** `.step-dot` / `.step-line` / `.step-label` elements before `#errorBanner`; `updateStepIndicator(n)` toggles `.active` / `.done` classes; label reads "Step N of 3", turns green on step 3
+- **Step indicator (M1):** `.step-dot` / `.step-line` / `.step-label` elements before `#errorBanner`; `updateStepIndicator(n, complete)` toggles `.active` / `.done` classes; label reads "Step N of 3", turns green on step 3. Dot 3 is white (`active`) while generating; `showGallery()` calls `updateStepIndicator(3, true)` so all dots+lines turn green when generation completes
 - **Browser history (M2):** `history.replaceState({step:1})` at load; `goToStep(n)` calls `history.pushState({step:n})`; `popstate` listener restores step without re-pushing (skipHistory=true)
 - **Error focus (M3):** `commitManualEntry()` maps `missingFields[0]` to input ID via `_fieldMap` and calls `.focus()` on the first invalid element
 - **Empty gallery (M4):** `showGallery()` early-returns with SVG illustration + message + "← Back to Upload" button when `count === 0`
@@ -416,13 +423,13 @@ GET /me                  — returns { email, name } or {}
 
 `db.init()` is called at startup — creates all tables if they don't exist (idempotent). All db exports are `async`. `requireAccess` middleware is `async`. History is logged in `/generate` after `job.status = 'done'` — only when `AUTH_ENABLED && req.user && db`.
 
-**Admin dashboard** (`public/admin.html`):
+**Admin dashboard** (`public/admin.html`) — the Admin link on the main page opens in a new tab (`target="_blank" rel="noopener"`). Users nav icon is a simple single head+shoulders SVG:
 - KPI cards: Total Users, Pending, Approved, Posters Generated
 - Pending Requests table (approve/deny), with amber alert banner when non-empty
 - Charts: Posters by Template (doughnut, template colors) + Daily Activity last 30 days (bar)
 - Approved Users table (last seen, posters made, revoke)
 - Denied Users table (with re-approve)
-- Generation History table with user/template filters; row count badge; scrollable (max-height 420px, sticky thead); click any row → detail modal (`openActivityModal(idx)`) showing employee list + duration/template/date; `background:#141414` (do NOT use `var(--surface-1)` — undefined in admin.html); Esc/overlay click closes; `db.getHistory(30)` queries by date range (30-day window) not row limit
+- Recent Activity table: header has a user filter dropdown (`#recent-user-filter`, options rebuilt from history each render, selection preserved across the 30s auto-refresh) and a date range dropdown (`#recent-range-filter`: 7/30/90/365/3650 days → `switchHistoryRange()` refetches `/admin/data?historyDays=N`; server clamps to 3650). User filter comes FIRST, range second. Badge shows `N batches · M posters <range label>` for the current filter. Rows render from module-level `_recentRows` (the filtered list) — `openActivityModal(idx)` indexes into `_recentRows`, NOT `DATA.history`; row count badge; scrollable (max-height 420px, sticky thead); modal `background:#141414` (do NOT use `var(--surface-1)` — undefined in admin.html); Esc/overlay click closes; `db.getHistory(days)` queries by date range not row limit
 - Render Errors table; same scrollable + click-to-details treatment as Recent Activity; `openErrorModal(idx)` shows full untruncated error message in monospaced scrollable block; `background:#141414` for modal
 - Auto-refreshes every 30 seconds via `setInterval(loadData, 30000)`
 

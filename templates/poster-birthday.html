@@ -140,9 +140,13 @@
       color: #fff;
       letter-spacing: -0.3px;
       line-height: 1.1;
-      white-space: nowrap;
       margin-bottom: 23px;
     }
+
+    /* Empty fields must not leave their margin behind — a missing department or
+       division must not push the remaining rows down */
+    .employee-name:empty, .employee-position:empty,
+    .employee-department:empty, .employee-division:empty { display: none; }
 
     .employee-position {
       font-family: 'Montserrat', sans-serif;
