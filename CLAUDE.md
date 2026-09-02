@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Pending Work
 
-- **Google Drive + README:** Upload the three template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
-- **Deploy:** Up to date as of 2026-09-02 (commit `6194020` — loose photo matching, PDF ZIPs, browser/memory/ownership fixes; includes the earlier 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`). Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
-- **Verify after this deploy (auth-gated, needs a human):** (a) edit a poster → Regenerate, confirming the photo survives the buffer-reference refactor; (b) one batch upload with a partial/junk-suffixed filename, confirming loose matching end-to-end. Neither could be exercised locally — both need a signed-in session.
+- **Google Drive + README:** Upload the seven template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
+- **Deploy:** Up to date as of 2026-09-02 (`6194020` loose photo matching + PDF ZIPs + browser/memory/ownership fixes, then `baaf1aa`; includes the earlier 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`). Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
+  **Update every affected file before deploying, then commit once** — CLAUDE.md/SETUP.md/package.json/memory edits made after `./deploy.sh` leave a trailing dirty tree.
+- **Verified 2026-09-02 against the auth-free instance** (`npm run dev:noauth`): prepare → generate → preview → regenerate → download, including loose matching on a partial+junk-suffixed filename, a regenerate with no photo re-upload (buffer-reference path), and a ZIP containing a real 2-page PDF. No auth-gated gaps remain.
 
 ## Backgrounds (2026-06-29)
 

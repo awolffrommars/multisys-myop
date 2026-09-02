@@ -10,6 +10,7 @@ A single-file Express server (`server.js`) with Puppeteer for poster rendering. 
 npm install                              # installs deps + downloads Chromium
 PUPPETEER_SKIP_DOWNLOAD=true npm install # skip Chromium download if already cached
 npm start                                # starts server on port 3000
+npm run dev:noauth                       # port 3001 with NO login — for local testing
 npm run start:v1                         # runs V1 (Google Sheets version) for reference
 
 # Kill and restart:
@@ -17,7 +18,7 @@ lsof -ti :3000 | xargs kill -9
 nohup node server.js > /tmp/poster-server.log 2>&1 &
 ```
 
-**Parallel rendering:** `CONCURRENCY = 3` in `server.js` — batches of 3 employees rendered simultaneously via `Promise.all`. Results pushed in order after each batch to keep `posters[]` / `photos[]` indices aligned.
+**Parallel rendering:** `CONCURRENCY = 2` in `server.js` — batches of 2 employees rendered simultaneously via `Promise.all`. Results pushed in order after each batch to keep `posters[]` / `photos[]` indices aligned.
 
 ## API Endpoints
 
