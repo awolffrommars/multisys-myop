@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:v1": "node server.v1.js"
+    "start:v1": "node server.v1.js",
+    "dev:noauth": "GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= PORT=3001 node server.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Pending Work
 
 - **Google Drive + README:** Upload the three template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
-- **Deploy:** All accumulated changes (incl. the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`) are uncommitted — `./deploy.sh "Various fixes."` commits + ships everything. Revert hatch: `git reset --hard backup-pre-hardening`.
+- **Deploy:** Up to date as of 2026-09-02 (commit `6194020` — loose photo matching, PDF ZIPs, browser/memory/ownership fixes; includes the earlier 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`). Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
+- **Verify after this deploy (auth-gated, needs a human):** (a) edit a poster → Regenerate, confirming the photo survives the buffer-reference refactor; (b) one batch upload with a partial/junk-suffixed filename, confirming loose matching end-to-end. Neither could be exercised locally — both need a signed-in session.
 
 ## Backgrounds (2026-06-29)
 
@@ -56,6 +57,7 @@ Located above the step indicator (before `#stepIndicator` in HTML). Only shown t
 ## Commands
 
 ```bash
+npm run dev:noauth # Auth-free instance on port 3001 — for local/automated testing
 npm start          # Start the Express server on port 3000 (plain node — no nodemon)
 PUPPETEER_SKIP_DOWNLOAD=true npm install  # Install deps without re-downloading Chromium
 
@@ -63,6 +65,31 @@ PUPPETEER_SKIP_DOWNLOAD=true npm install  # Install deps without re-downloading 
 lsof -ti :3000 | xargs kill -9
 nohup node server.js > /tmp/poster-server.log 2>&1 &
 ```
+
+### Testing without the login page
+
+`AUTH_ENABLED` is derived at boot from `!!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)`, so blanking
+those two vars starts an instance with **no login at all** — every route is reachable directly:
+
+```bash
+npm run dev:noauth        # == GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= PORT=3001 node server.js
+```
+
+Blank (not unset) is what matters: dotenv does not override keys already present in `process.env`, so
+`GOOGLE_CLIENT_ID=` wins over the value in `.env` without editing the file. Port 3001 lets the
+authenticated instance keep running on 3000 for realistic checks.
+
+**This cannot weaken production.** The fail-closed boot guard exits if auth is off while `SPACE_ID`
+(HuggingFace) or `NODE_ENV=production` is set, and the Dockerfile runs `node server.js` directly with
+`NODE_ENV=production`, never an npm script. No code, `.env`, or deploy change is involved — do NOT add
+an `AUTH_DISABLED`-style flag, which would be a real production risk.
+
+With auth off, `/me`, `/login` and `/admin` are simply not registered (404). The client's `/me` fetch
+has a `.catch(() => {})`, so the header bar renders empty and nothing else breaks.
+
+**curl gotcha:** filenames with commas must be quoted inside the `-F` value — `-F 'photos=@"Santos,
+Kay.png"'`. Unquoted, curl reads the comma as its multi-file separator and fails with
+`curl: (26) Failed to open/read local data`.
 
 Puppeteer downloads its own Chromium on `npm install`. If Chromium is already cached at `~/.cache/puppeteer`, skip the download with the env var above.
 
