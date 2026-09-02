@@ -78,24 +78,42 @@ const _barsLogo    = loadIcon('msys-bars-logo.png');
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-let browser = null;
+// Memoize the launch PROMISE, not the resolved browser. The old
+// `if (!browser) browser = await puppeteer.launch()` let two concurrent renders
+// (CONCURRENCY=2 runs Promise.all) both pass the null check before either awaited:
+// two Chromiums launched, the second assignment orphaned the first, and it survived
+// as a ~80 MB zombie reparented to init. Holding the promise means the second caller
+// awaits the first launch instead of starting its own.
+let browserPromise = null;
 let activeRenders = 0; // renders currently in flight across ALL requests
 
 async function getBrowser() {
-  if (!browser) {
-    browser = await puppeteer.launch(LAUNCH_OPTIONS);
+  if (!browserPromise) {
+    const launching = puppeteer.launch(LAUNCH_OPTIONS)
+      .then(b => {
+        // A crashed browser must not stay memoized as a dead handle — drop it so
+        // the next render launches a fresh one instead of failing forever
+        b.on('disconnected', () => { if (browserPromise === launching) browserPromise = null; });
+        return b;
+      })
+      .catch(err => {
+        if (browserPromise === launching) browserPromise = null; // let the next call retry
+        throw err;
+      });
+    browserPromise = launching;
   }
-  return browser;
+  return browserPromise;
 }
 
 async function closeBrowser() {
   // Never close while another request's render is mid-flight — two concurrent
   // batches share this singleton, and closing under one kills the other
   // ("Protocol error: Target closed"). The last batch to finish closes it.
-  if (browser && activeRenders === 0) {
-    await browser.close();
-    browser = null;
-  }
+  if (!browserPromise || activeRenders > 0) return;
+  const closing = browserPromise;
+  browserPromise = null; // clear first, so a render starting now launches its own
+  const b = await closing.catch(() => null);
+  if (b) await b.close().catch(() => {});
 }
 
 async function renderPoster(data, photoData, templateBase64, config, templateKey = 'new-employee', signatureData = null) {
@@ -162,6 +180,10 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
     sub('{{DIVISION}}', escapeHtml(data.division || ''));
     sub('{{BIRTHDAY_DATE}}', escapeHtml(data.birthdayDate || ''));
     sub('{{ANNIVERSARY_YEARS}}', escapeHtml(data.anniversaryYears || ''));
+    // "1 YEAR", not "1 YEARS". Anything non-numeric or absent keeps the plural,
+    // which is what the hardcoded template text used to always produce.
+    const _yrs = parseInt(String(data.anniversaryYears ?? '').trim(), 10);
+    sub('{{YEARS_WORD}}', _yrs === 1 ? 'YEAR' : 'YEARS');
     sub('{{DATE_HIRED}}', escapeHtml(data.dateHired || ''));
     sub('{{EMAIL}}', escapeHtml(data.email || ''));
     sub('{{MOBILE}}', escapeHtml(data.mobile || ''));
@@ -263,6 +285,17 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
 
     await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
     await page.evaluate(async () => { await document.fonts.ready; });
+    // Wait for every image to be DECODED, not merely loaded. `load` fires once the
+    // bytes have arrived, but a 10 MB 2500x4300 portrait plus the 1920x3050 template
+    // can still be mid-decode when the screenshot fires — which yields a half-painted
+    // card (logo only, no photo, no red banner). img.decode() resolves when the
+    // bitmap is ready to paint.
+    await page.evaluate(async () => {
+      await Promise.all(Array.from(document.images).map(async (img) => {
+        if (!img.complete) await new Promise(res => { img.onload = res; img.onerror = res; });
+        if (img.decode) { try { await img.decode(); } catch {} }
+      }));
+    });
 
     // Auto-fit text overlays: measure the real rendered text width and shrink
     // the font 1px at a time until it fits its column, so long names stay
@@ -345,6 +378,9 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       }, AUTOFIT[templateKey], templateKey);
     }
 
+    // Two frames so the decoded bitmaps are actually composited before capture
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+
     const screenshot = await page.screenshot({ type: 'png', fullPage: false });
 
     return screenshot;
@@ -393,4 +429,49 @@ async function renderPdf(frontBuffer, backBuffer, opts = {}) {
   }
 }
 
-module.exports = { renderPoster, closeBrowser, renderPdf, normalizePhone };
+// Batch variant of renderPdf: one browser for the whole set instead of one per
+// PDF. Used by the ZIP download, where a launch-per-employee would dominate the
+// request time. `pairs` = [{ front: Buffer, back: Buffer|null }].
+async function renderPdfBatch(pairs, opts = {}) {
+  const pageW = opts.pageWidth  || '508mm';
+  const pageH = opts.pageHeight || '807mm';
+  if (!pairs.length) return [];
+
+  const pdfBrowser = await puppeteer.launch(LAUNCH_OPTIONS);
+  try {
+    const page = await pdfBrowser.newPage();
+    const out = [];
+    for (const { front, back } of pairs) {
+      const backB64 = back ? back.toString('base64') : null;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        @page { margin: 0; size: ${pageW} ${pageH}; }
+        * { margin: 0; padding: 0; }
+        body { background: #fff; }
+        img { width: ${pageW}; height: ${pageH}; display: block; page-break-after: always; }
+      </style></head><body>
+        <img src="data:image/png;base64,${front.toString('base64')}" />
+        ${backB64 ? `<img src="data:image/png;base64,${backB64}" />` : ''}
+      </body></html>`;
+      await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+      // Same decode guard as renderPoster — a mid-decode image prints blank
+      await page.evaluate(async () => {
+        await Promise.all(Array.from(document.images).map(async (img) => {
+          if (!img.complete) await new Promise(res => { img.onload = res; img.onerror = res; });
+          if (img.decode) { try { await img.decode(); } catch {} }
+        }));
+      });
+      out.push(await page.pdf({
+        width: pageW,
+        height: pageH,
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      }));
+    }
+    await page.close();
+    return out;
+  } finally {
+    await pdfBrowser.close();
+  }
+}
+
+module.exports = { renderPoster, closeBrowser, renderPdf, renderPdfBatch, normalizePhone };

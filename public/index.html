@@ -1661,8 +1661,8 @@
     document.getElementById('csvLabel').textContent = 'Drop CSV file here or click to browse';
     document.getElementById('csvRemoveBtn').style.display = 'none';
     document.getElementById('photoRemoveBtn').style.display = 'none';
-    document.getElementById('photoLabel').textContent = 'Drop PNG photos here or click to browse';
-    document.getElementById('photoSub').textContent = 'PNG only — ensures transparent backgrounds';
+    document.getElementById('photoLabel').textContent = photoZoneLabel();
+    document.getElementById('photoSub').textContent = photoZoneSub();
     document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
     document.getElementById('extraNumbersList').innerHTML = '';
     document.getElementById('addNumberBtn').style.display = 'none';
@@ -1861,6 +1861,12 @@
     const sigZoneBatch = document.getElementById('signatureZone');
     const sigListBatch = document.getElementById('signatureList');
     if (sigZoneBatch) { sigZoneBatch.style.display = isMultisysId ? '' : 'none'; sigListBatch.style.display = isMultisysId ? '' : 'none'; }
+    document.getElementById('generateBtn').textContent = generateBtnLabel();
+    // Photo-zone copy is template-specific — refresh it when no files are staged
+    if (!photoFiles.length) {
+      document.getElementById('photoLabel').textContent = photoZoneLabel();
+      document.getElementById('photoSub').textContent   = photoZoneSub();
+    }
 
     // Preview table columns
     document.getElementById('thDepartment').style.display     = (isCallingCard || isMultisysId) ? 'none' : '';
@@ -2155,6 +2161,43 @@
     });
   }
 
+  // Multisys ID needs portrait headshots specifically, not generic photos
+  function photoZoneLabel() {
+    return selectedTemplate === 'multisys-id'
+      ? 'Drop portrait PNGs here or click to browse'
+      : 'Drop PNG photos here or click to browse';
+  }
+  function photoZoneSub() {
+    return selectedTemplate === 'multisys-id'
+      ? 'Employee ID portraits · PNG only — ensures transparent backgrounds'
+      : 'PNG only — ensures transparent backgrounds';
+  }
+
+  // The output isn't a "poster" for every template — name the CTA after the artifact
+  function generateBtnLabel() {
+    if (selectedTemplate === 'calling-card') return 'Generate Calling Cards';
+    if (selectedTemplate === 'multisys-id')  return 'Generate IDs';
+    return 'Generate Posters';
+  }
+
+  // Drop every file belonging to this employee — exact key match, or a partial-name
+  // file ("Garlan, Peter.png" for "Peter Psalm Garlan") — while NEVER touching a file
+  // whose key exactly matches a DIFFERENT employee. Shared by the photo and signature
+  // inline upload/remove paths so they can't drift apart.
+  function dropEmployeeFiles(files, emp) {
+    const key = normalizeNameKey(emp.fullName);
+    const empTokens = key.split(' ');
+    const otherKeys = new Set(currentEmployees.filter(e => e.fullName !== emp.fullName).map(e => normalizeNameKey(e.fullName)));
+    return files.filter(f => {
+      const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
+      if (fKey === key) return false;
+      if (otherKeys.has(fKey)) return true;
+      const fTokens = fKey.split(' ');
+      if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
+      return true;
+    });
+  }
+
   function updatePhotoZone() {
     const label = document.getElementById('photoLabel');
     const sub = document.getElementById('photoSub');
@@ -2162,8 +2205,8 @@
       label.textContent = `✓ ${photoFiles.length} photo${photoFiles.length !== 1 ? 's' : ''} selected`;
       sub.textContent = 'Click or drop to add more from another folder';
     } else {
-      label.textContent = 'Drop PNG photos here or click to browse';
-      sub.textContent = 'PNG only — ensures transparent backgrounds';
+      label.textContent = photoZoneLabel();
+      sub.textContent = photoZoneSub();
     }
     document.getElementById('photoZone').classList.toggle('has-file', photoFiles.length > 0);
     document.getElementById('photoRemoveBtn').style.display = photoFiles.length > 0 ? '' : 'none';
@@ -2179,7 +2222,9 @@
 
     photoFiles.forEach((file, i) => {
       const base = file.name.replace(/\.[^.]+$/, '');
-      const matched = !csvFile || nameKeys.has(normalizeNameKey(base));
+      // Exact key first (cheap), then the same loose rule the server applies
+      const matched = !csvFile || nameKeys.has(normalizeNameKey(base)) ||
+                      csvEmployeeNames.some(n => looseNameMatch(n, base));
       const item = document.createElement('div');
       item.className = `photo-list-item${matched ? '' : ' no-match'}`;
       item.innerHTML = `<span>${esc(file.name)}</span><button class="btn-icon" title="Remove">×</button>`;
@@ -2263,6 +2308,30 @@
       .replace(/[,]+/g, ' ')
       .replace(/[\s_\-\.]+/g, ' ')
       .trim().split(' ').filter(Boolean).sort().join(' ');
+  }
+
+  // Mirrors JUNK_TOKENS / nameTokens / scoreMatch in services/matcher.js — the photo
+  // list's match badge must agree with what the server will actually do. Keep in sync.
+  const JUNK_TOKENS = new Set(['copy','final','final2','new','edit','edited','resized','crop','cropped',
+    'draft','img','image','photo','pic','picture','portrait','headshot','v1','v2','v3','orig','original']);
+
+  function nameTokens(str) {
+    return normalizeNameKey(str).split(' ')
+      .filter(t => t && t.length > 1 && !/^\d+$/.test(t) && !JUNK_TOKENS.has(t));
+  }
+
+  // Every meaningful token of the shorter name must appear in the longer one, with
+  // 2+ shared tokens (unless both names are a single token).
+  function looseNameMatch(employeeName, fileBase) {
+    const e = nameTokens(employeeName), f = nameTokens(fileBase);
+    if (!e.length || !f.length) return false;
+    const eSet = new Set(e), fSet = new Set(f);
+    const shared = [...fSet].filter(t => eSet.has(t)).length;
+    if (shared === 0) return false;
+    const [small, bigSet] = e.length <= f.length ? [e, fSet] : [f, eSet];
+    if (!small.every(t => bigSet.has(t))) return false;
+    if (shared < 2 && !(eSet.size === 1 && fSet.size === 1)) return false;
+    return true;
   }
 
   function checkPhotoMatch() {
@@ -2762,9 +2831,15 @@
     renderPreview(data.employees);
     renderPreviewSummary(data.employees);
     renderPhotoList();
+    const warnings = [];
     if (data.duplicateFiles?.length) {
-      setError(`Duplicate photo names: ${data.duplicateFiles.map(d => `"${d.overwrote}" was replaced by "${d.kept}"`).join('; ')}`);
+      warnings.push(`Duplicate photo names: ${data.duplicateFiles.map(d => `"${d.overwrote}" was replaced by "${d.kept}"`).join('; ')}`);
     }
+    // The matcher refused to guess between two equally good readings — upload these by hand
+    if (data.ambiguousMatches?.length) {
+      warnings.push(`Ambiguous name match, left unassigned — upload manually: ${data.ambiguousMatches.join('; ')}`);
+    }
+    if (warnings.length) setError(warnings.join(' · '));
     return data;
   }
 
@@ -2844,6 +2919,7 @@
     const isAnniversary    = selectedTemplate === 'anniversary';
     const needsDivision    = isBirthday || isAnniversary;
     document.getElementById('generateBtn').disabled = !noPhotoTpl && noneHavePhoto;
+    document.getElementById('generateBtn').textContent = generateBtnLabel();
 
     document.getElementById('thDepartment').style.display     = (isCallingCard || isMultisysId) ? 'none' : '';
     document.getElementById('thDivision').style.display       = needsDivision ? '' : 'none';
@@ -2872,11 +2948,13 @@
         ${isAnniversary ? `<td style="color:#999;white-space:nowrap">${esc(emp.dateHired || '')}</td>` : ''}
         ${isCallingCard ? `<td style="color:#999">${esc(emp.email||'')}</td><td style="color:#999">${esc(emp.mobile||'')}</td>` : ''}
         ${isMultisysId ? `<td style="color:#999">${esc(emp.employeeNumber||'')}</td>` : ''}
-        ${!isCallingCard ? `<td><div style="display:flex;align-items:center;gap:6px"><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">${emp.photoFound ? '✓ Found' : '✗ Missing'}</span>${emp.photoFound ? `<button class="photo-remove-btn" title="Remove photo" aria-label="Remove photo"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}</div></td>` : ''}
-        ${isMultisysId ? `<td><span class="match-badge ${emp.signatureFound ? 'found' : 'missing'}">${emp.signatureFound ? '✓ Found' : '✗ Missing'}</span></td>` : ''}
-        ${!isCallingCard && hasMissing ? `<td>${!emp.photoFound ? `<label class="upload-inline">↑ Upload Photo<input type="file" accept=".png" /></label>` : ''}</td>` : ''}`;
+        ${!isCallingCard ? `<td class="photo-cell"><div style="display:flex;align-items:center;gap:6px"><span class="match-badge ${emp.photoFound ? 'found' : 'missing'}">${emp.photoFound ? '✓ Found' : '✗ Missing'}</span>${emp.photoFound ? `<button class="photo-remove-btn" title="Remove photo" aria-label="Remove photo"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}</div></td>` : ''}
+        ${isMultisysId ? `<td class="sig-cell"><div style="display:flex;align-items:center;gap:6px"><span class="match-badge ${emp.signatureFound ? 'found' : 'missing'}">${emp.signatureFound ? '✓ Found' : '✗ Missing'}</span>${emp.signatureFound
+            ? `<button class="photo-remove-btn" title="Remove signature" aria-label="Remove signature"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>`
+            : `<label class="upload-inline">↑ Upload<input type="file" accept=".png" /></label>`}</div></td>` : ''}
+        ${!isCallingCard && hasMissing ? `<td class="upload-cell">${!emp.photoFound ? `<label class="upload-inline">↑ Upload Photo<input type="file" accept=".png" /></label>` : ''}</td>` : ''}`;
       if (!isCallingCard && !emp.photoFound) {
-        tr.querySelector('input[type="file"]').addEventListener('change', async function () {
+        tr.querySelector('.upload-cell input[type="file"]').addEventListener('change', async function () {
           const file = this.files[0];
           if (!file) return;
           const label = this.closest('label');
@@ -2884,21 +2962,7 @@
           label.innerHTML = '<span class="upload-inline-spinner"></span> Uploading…';
           const renamed = new File([file], `${emp.fullName}.png`, { type: file.type });
           if (activeMode === 'csv') {
-            const key = normalizeNameKey(emp.fullName);
-            const empTokens = key.split(' ');
-            // Never remove a file that exactly matches a DIFFERENT employee —
-            // "Peter Garlan.png" is a subset of "Peter Psalm Garlan" but may be
-            // employee Peter Garlan's own photo
-            const otherKeys = new Set(currentEmployees.filter(e => e.fullName !== emp.fullName).map(e => normalizeNameKey(e.fullName)));
-            photoFiles = photoFiles.filter(f => {
-              const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
-              if (fKey === key) return false;
-              if (otherKeys.has(fKey)) return true;
-              // Also remove partial-name files whose tokens are all contained in this employee's name
-              const fTokens = fKey.split(' ');
-              if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
-              return true;
-            });
+            photoFiles = dropEmployeeFiles(photoFiles, emp);
             photoFiles.push(renamed);
             updatePhotoZone();
           } else {
@@ -2912,25 +2976,55 @@
           }
         });
       }
-      const photoRemoveBtn = tr.querySelector('.photo-remove-btn');
+      const photoRemoveBtn = tr.querySelector('.photo-cell .photo-remove-btn');
       if (photoRemoveBtn) {
         photoRemoveBtn.addEventListener('click', async function () {
           if (activeMode === 'csv') {
-            const key = normalizeNameKey(emp.fullName);
-            const empTokens = key.split(' ');
-            const otherKeys = new Set(currentEmployees.filter(e => e.fullName !== emp.fullName).map(e => normalizeNameKey(e.fullName)));
-            photoFiles = photoFiles.filter(f => {
-              const fKey = normalizeNameKey(f.name.replace(/\.[^.]+$/, ''));
-              if (fKey === key) return false;
-              if (otherKeys.has(fKey)) return true; // exact match for a different employee — keep
-              const fTokens = fKey.split(' ');
-              if (fTokens.length > 0 && fTokens.every(t => empTokens.includes(t))) return false;
-              return true;
-            });
+            photoFiles = dropEmployeeFiles(photoFiles, emp);
             updatePhotoZone();
           } else {
             const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
             if (manualEmp) manualEmp.photoFile = null;
+          }
+          try { await submitPrepare(); } catch (err) { setError(err.message); }
+        });
+      }
+
+      // Signature: inline upload when missing, trash when present (Multisys ID only)
+      const sigUploadInput = tr.querySelector('.sig-cell input[type="file"]');
+      if (sigUploadInput) {
+        sigUploadInput.addEventListener('change', async function () {
+          const file = this.files[0];
+          if (!file) return;
+          const label = this.closest('label');
+          label.classList.add('uploading');
+          label.innerHTML = '<span class="upload-inline-spinner"></span> Uploading…';
+          // Same background strip the batch and manual signature paths apply
+          const cleaned = await removeSigBackground(new File([file], `${emp.fullName}.png`, { type: file.type }));
+          if (activeMode === 'csv') {
+            signatureFiles = dropEmployeeFiles(signatureFiles, emp);
+            signatureFiles.push(cleaned);
+            updateSignatureZone();
+          } else {
+            const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
+            if (manualEmp) manualEmp.signatureFile = cleaned;
+          }
+          try { await submitPrepare(); } catch (err) {
+            setError(err.message);
+            label.classList.remove('uploading');
+            label.innerHTML = '↑ Upload';
+          }
+        });
+      }
+      const sigRemoveBtn = tr.querySelector('.sig-cell .photo-remove-btn');
+      if (sigRemoveBtn) {
+        sigRemoveBtn.addEventListener('click', async function () {
+          if (activeMode === 'csv') {
+            signatureFiles = dropEmployeeFiles(signatureFiles, emp);
+            updateSignatureZone();
+          } else {
+            const manualEmp = manualEmployees.find(e => normalizeNameKey(e.fullName) === normalizeNameKey(emp.fullName));
+            if (manualEmp) manualEmp.signatureFile = null;
           }
           try { await submitPrepare(); } catch (err) { setError(err.message); }
         });

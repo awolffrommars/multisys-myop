@@ -12,8 +12,8 @@ require('dotenv').config();
 
 const QRCode = require('qrcode');
 const { parseCSV } = require('./services/csv');
-const { buildPhotoMap, findPhoto, normalizeNameKey } = require('./services/matcher');
-const { renderPoster, closeBrowser, renderPdf, normalizePhone } = require('./services/poster');
+const { buildPhotoMap, findPhoto, normalizeNameKey, resolveMatches } = require('./services/matcher');
+const { renderPoster, closeBrowser, renderPdf, renderPdfBatch, normalizePhone } = require('./services/poster');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -306,18 +306,56 @@ const NO_PHOTO_TEMPLATES = new Set(['calling-card']);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024, files: 501 }, // 20 MB per file, 500 photos + 1 CSV
+  // 500 photos + 500 signatures (multisys-id) + 1 CSV. The old 501 silently
+  // rejected any ID batch that supplied a signature per employee.
+  // Total bytes are separately capped by MAX_PREPARE_BYTES below.
+  limits: { fileSize: 20 * 1024 * 1024, files: 1001 },
 });
 
 // In-memory job store with TTL eviction (2 hours)
 const jobs = new Map();
 const JOB_TTL_MS = 2 * 60 * 60 * 1000;
+// A 'generating' job idle this long is treated as abandoned (see /generate)
+const STALE_GENERATE_MS = 30 * 60 * 1000;
 setInterval(() => {
   const cutoff = Date.now() - JOB_TTL_MS;
   for (const [id, job] of jobs) {
     if ((job.createdAt || 0) < cutoff) jobs.delete(id);
   }
 }, 10 * 60 * 1000).unref();
+
+// `format` lands in `data:image/${format};base64,...` inside a src="" attribute in
+// the render browser, so a crafted upload mimetype ("image/png\"><script>") could
+// break out of the attribute. Batch uploads are safe (matcher.js hardcodes 'png');
+// this guards the /regenerate path, where the mimetype is client-supplied.
+const SAFE_IMAGE_FORMATS = new Set(['png', 'jpeg', 'jpg', 'webp', 'gif', 'avif']);
+function safeImageFormat(mimetype) {
+  const sub = String(mimetype || '').split('/')[1]?.toLowerCase().trim();
+  return SAFE_IMAGE_FORMATS.has(sub) ? sub : 'png';
+}
+
+// A job holds employee PII (addresses, SSS/TIN/PhilHealth, emergency contacts) and
+// the rendered cards. Being an approved user is not enough — you must own the job.
+// Returns null for "not yours" as well as "not found" so the 404 doesn't confirm
+// that some other user's job id exists.
+function ownedJob(req, jobId) {
+  const job = jobs.get(jobId);
+  if (!job) return null;
+  if (!AUTH_ENABLED) return job;          // local dev: no identity to check against
+  if (job.owner && job.owner !== req.user?.email) return null;
+  return job;
+}
+
+// job.photos/job.signatures keep Buffer REFERENCES to bytes already held by
+// photoMap/signatureMap — storing a base64 STRING copy instead duplicated every
+// upload at ~1.33x size (a 500-employee ID batch held ~6.5 GB of redundant string).
+// Convert to the renderer's shape only at render time.
+function toRenderData(ref) {
+  if (!ref) return null;
+  if (ref.base64) return ref;             // already render-shaped
+  if (ref.buffer) return { base64: ref.buffer.toString('base64'), format: ref.format };
+  return null;
+}
 
 // Reload templates from disk without restarting
 app.post('/reload-template', (req, res) => {
@@ -402,21 +440,44 @@ app.post('/prepare', upload.fields([
     const photoMap     = buildPhotoMap(photoFiles);
     const signatureMap = buildPhotoMap(req.files?.signatures || []);
 
+    // Resolve the whole batch at once rather than per employee: exact matches claim
+    // their file first, then each remaining employee takes its uniquely best
+    // leftover, and any file wanted by two employees is withdrawn from both.
+    // Per-employee matching can't see those collisions and would hand the same
+    // photo to two people.
+    const empNames  = employees.map(e => e.fullName);
+    const photoRes  = resolveMatches(empNames, photoMap);
+    const sigRes    = templateKey === 'multisys-id'
+      ? resolveMatches(empNames, signatureMap)
+      : { matches: new Map(), ambiguous: [] };
+
     const preview = employees.map(emp => ({
       ...emp,
-      photoFound:     noPhotoTemplate ? true : !!findPhoto(emp.fullName, photoMap),
-      signatureFound: templateKey === 'multisys-id' ? !!findPhoto(emp.fullName, signatureMap) : undefined,
+      photoFound:     noPhotoTemplate ? true : photoRes.matches.has(normalizeNameKey(emp.fullName)),
+      signatureFound: templateKey === 'multisys-id' ? sigRes.matches.has(normalizeNameKey(emp.fullName)) : undefined,
     }));
 
     // Signatures are optional — posters render with the signature overlay hidden
     // when absent, and one can be added later via the edit modal (/regenerate)
 
     const jobId = crypto.randomUUID();
-    jobs.set(jobId, { employees, photoMap, signatureMap, posters: [], photos: [], signatures: [], status: 'ready', templateKey, noPhotoTemplate, createdAt: Date.now() });
+    // Store the resolution, not just the maps — /generate must render exactly what
+    // the preview promised, and re-resolving there could differ.
+    jobs.set(jobId, { employees, photoMap, signatureMap, photoMatches: photoRes.matches, signatureMatches: sigRes.matches, posters: [], photos: [], signatures: [], status: 'ready', templateKey, noPhotoTemplate, createdAt: Date.now(), owner: AUTH_ENABLED ? req.user?.email : null });
 
     // Two uploaded files normalizing to the same employee — warn instead of silently keeping the last
     const duplicateFiles = [...(photoMap.duplicates || []), ...(signatureMap.duplicates || [])];
-    res.json({ jobId, employees: preview, duplicateFiles: duplicateFiles.length ? duplicateFiles : undefined });
+    // Files the loose matcher refused to assign because more than one reading fits
+    const ambiguousMatches = [...photoRes.ambiguous, ...sigRes.ambiguous].map(a =>
+      a.file
+        ? `"${a.file}" could be ${a.employees.join(' or ')}`
+        : `${a.employee} matches several files: ${a.files.map(f => `"${f}"`).join(', ')}`);
+    res.json({
+      jobId,
+      employees: preview,
+      duplicateFiles: duplicateFiles.length ? duplicateFiles : undefined,
+      ambiguousMatches: ambiguousMatches.length ? ambiguousMatches : undefined,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -424,8 +485,17 @@ app.post('/prepare', upload.fields([
 
 // Step 2: Generate posters (SSE stream)
 app.get('/generate/:jobId', async (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found.' });
+  // A run whose server died mid-generation leaves status stuck at 'generating',
+  // and the guard below then closes every reconnect empty — the client retries
+  // every ~3s until the 2-hour TTL evicts the job. Treat a run with no progress
+  // for STALE_GENERATE_MS as abandoned and allow a fresh attempt. Deliberately
+  // generous: a legitimately slow batch must never be restarted underneath itself.
+  if (job.status === 'generating' && job.startedAt && (Date.now() - job.startedAt) > STALE_GENERATE_MS) {
+    console.warn(`[generate] job ${req.params.jobId} stale for ${Math.round((Date.now() - job.startedAt) / 60000)}min — allowing retry`);
+    job.status = 'ready';
+  }
   // Block re-runs: EventSource auto-reconnects after the stream closes, which would
   // reset job.photos and corrupt in-flight or completed regenerate calls.
   if (job.status !== 'ready') {
@@ -478,16 +548,24 @@ app.get('/generate/:jobId', async (req, res) => {
         emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'processing' });
 
         const noPhoto = job.noPhotoTemplate;
-        const photoResult = noPhoto ? null : findPhoto(emp.fullName, job.photoMap);
+        // Use the resolution computed at /prepare time so the rendered set matches
+        // the preview exactly (falls back for jobs predating the resolution).
+        const _empKey = normalizeNameKey(emp.fullName);
+        const photoResult = noPhoto ? null
+          : (job.photoMatches ? job.photoMatches.get(_empKey) || null : findPhoto(emp.fullName, job.photoMap));
         if (!photoResult && !noPhoto) {
           emit({ type: 'progress', row, name: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, status: 'skipped', message: 'No photo' });
           return null;
         }
 
-        const photoData = photoResult ? { base64: photoResult.buffer.toString('base64'), format: photoResult.format } : null;
+        // Refs are what the job retains; the base64 form is built for this render only
+        const photoRef = photoResult ? { buffer: photoResult.buffer, format: photoResult.format } : null;
+        const photoData = toRenderData(photoRef);
 
-        const sigResult = job.templateKey === 'multisys-id' ? findPhoto(emp.fullName, job.signatureMap) : null;
-        const signatureData = sigResult ? { base64: sigResult.buffer.toString('base64'), format: sigResult.format } : null;
+        const sigResult = job.templateKey !== 'multisys-id' ? null
+          : (job.signatureMatches ? job.signatureMatches.get(_empKey) || null : findPhoto(emp.fullName, job.signatureMap));
+        const signatureRef = sigResult ? { buffer: sigResult.buffer, format: sigResult.format } : null;
+        const signatureData = toRenderData(signatureRef);
 
         const empData = { fullName: emp.fullName, position: emp.position, department: emp.department, division: emp.division, birthdayDate: emp.birthdayDate, anniversaryYears: emp.anniversaryYears, dateHired: emp.dateHired, email: emp.email, mobile: emp.mobile, employeeNumber: emp.employeeNumber, address: emp.address, phoneNumber: emp.phoneNumber, philhealth: emp.philhealth, sss: emp.sss, tin: emp.tin, hdmf: emp.hdmf, contactName: emp.contactName, contactAddress: emp.contactAddress, contactNumber: emp.contactNumber };
 
@@ -506,11 +584,11 @@ app.get('/generate/:jobId', async (req, res) => {
           if (backBuffer) {
             const backKey = job.templateKey === 'multisys-id' ? 'multisys-id-back' : 'calling-card-back';
             return [
-              { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: job.templateKey, side: 'front' },
-              { photoData: null, signatureData: null, name: emp.fullName, buffer: backBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: backKey, side: 'back' },
+              { photoRef, signatureRef, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: job.templateKey, side: 'front' },
+              { photoRef: null, signatureRef: null, name: emp.fullName, buffer: backBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate, posterTemplateKey: backKey, side: 'back' },
             ];
           }
-          return { photoData, signatureData, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate };
+          return { photoRef, signatureRef, name: emp.fullName, buffer: frontBuffer, dateHired: emp.dateHired, birthdayDate: emp.birthdayDate };
         } catch (err) {
           emit({ type: 'progress', row, name: emp.fullName, status: 'error', message: err.message });
           if (AUTH_ENABLED && req.user && db) {
@@ -525,8 +603,8 @@ app.get('/generate/:jobId', async (req, res) => {
         if (!result) continue;
         const items = Array.isArray(result) ? result : [result];
         for (const r of items) {
-          job.photos.push(r.photoData);
-          job.signatures.push(r.signatureData);
+          job.photos.push(r.photoRef);
+          job.signatures.push(r.signatureRef);
           job.posters.push({ name: r.name, buffer: r.buffer, dateHired: r.dateHired, birthdayDate: r.birthdayDate, posterTemplateKey: r.posterTemplateKey, side: r.side });
         }
       }
@@ -558,7 +636,7 @@ app.get('/generate/:jobId', async (req, res) => {
 
 // Regenerate a single poster with updated details
 app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 1 }, { name: 'signature', maxCount: 1 }]), async (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   const index = parseInt(req.params.index, 10);
   if (!job || !job.posters[index]) return res.status(404).json({ error: 'Poster not found.' });
   const poster = job.posters[index];
@@ -572,38 +650,46 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
   }
 
   const photoFile = req.files?.photo?.[0];
-  let photoData = null;
+  let photoRef = null;
   if (photoFile) {
-    const format = photoFile.mimetype.split('/')[1] || 'png';
-    photoData = { base64: photoFile.buffer.toString('base64'), format };
-    job.photoMap.set(normalizeNameKey(fullName), { buffer: photoFile.buffer, format, originalName: Buffer.from(photoFile.originalname, 'latin1').toString('utf8') });
+    const format = safeImageFormat(photoFile.mimetype);
+    photoRef = { buffer: photoFile.buffer, format };
+    const _pName = Buffer.from(photoFile.originalname, 'latin1').toString('utf8');
+    const _pEntry = { buffer: photoFile.buffer, format, originalName: _pName, baseName: _pName.replace(/\.[^.]+$/, '') };
+    job.photoMap.set(normalizeNameKey(fullName), _pEntry);
+    // Keep the stored resolution in step with the map, or a later job reset +
+    // re-generate would fall back to the pre-upload matching
+    job.photoMatches?.set(normalizeNameKey(fullName), _pEntry);
   } else {
-    photoData = job.photos?.[index] || null;
-    if (!photoData) {
+    photoRef = job.photos?.[index] || null;
+    if (!photoRef) {
       const photoResult = findPhoto(fullName, job.photoMap) ||
         (originalName ? findPhoto(originalName, job.photoMap) : null);
-      if (photoResult) {
-        photoData = { base64: photoResult.buffer.toString('base64'), format: photoResult.format };
-      }
+      if (photoResult) photoRef = { buffer: photoResult.buffer, format: photoResult.format };
     }
   }
+  const photoData = toRenderData(photoRef);
 
   if (!photoData && !job.noPhotoTemplate && !isBackCard) return res.status(400).json({ error: 'No photo available for this employee.' });
 
   const sigFile = req.files?.signature?.[0];
-  let signatureData = null;
+  let signatureRef = null;
   if (sigFile) {
-    const format = sigFile.mimetype.split('/')[1] || 'png';
-    signatureData = { base64: sigFile.buffer.toString('base64'), format };
+    const format = safeImageFormat(sigFile.mimetype);
+    signatureRef = { buffer: sigFile.buffer, format };
     if (!job.signatureMap) job.signatureMap = new Map();
-    job.signatureMap.set(normalizeNameKey(fullName), { buffer: sigFile.buffer, format, originalName: Buffer.from(sigFile.originalname, 'latin1').toString('utf8') });
+    const _sName = Buffer.from(sigFile.originalname, 'latin1').toString('utf8');
+    const _sEntry = { buffer: sigFile.buffer, format, originalName: _sName, baseName: _sName.replace(/\.[^.]+$/, '') };
+    job.signatureMap.set(normalizeNameKey(fullName), _sEntry);
+    job.signatureMatches?.set(normalizeNameKey(fullName), _sEntry);
   } else {
-    signatureData = job.signatures?.[index] || null;
-    if (!signatureData && job.signatureMap) {
+    signatureRef = job.signatures?.[index] || null;
+    if (!signatureRef && job.signatureMap) {
       const sigResult = findPhoto(fullName, job.signatureMap);
-      if (sigResult) signatureData = { base64: sigResult.buffer.toString('base64'), format: sigResult.format };
+      if (sigResult) signatureRef = { buffer: sigResult.buffer, format: sigResult.format };
     }
   }
+  const signatureData = toRenderData(signatureRef);
 
   const empData = { fullName, firstName, lastName, position, department, division, birthdayDate, anniversaryYears, dateHired, email, mobile, employeeNumber, address, phoneNumber, philhealth, sss, tin, hdmf, contactName, contactAddress, contactNumber };
   try {
@@ -615,13 +701,14 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
       posterTemplateKey,
       isBackCard ? null : signatureData
     );
-    job.photos[index] = isBackCard ? null : photoData;
-    job.signatures[index] = isBackCard ? null : signatureData;
+    job.photos[index] = isBackCard ? null : photoRef;
+    job.signatures[index] = isBackCard ? null : signatureRef;
     // Preserve date fields — /download builds MM-DD filename prefixes from them
     job.posters[index] = { name: fullName, buffer: pngBuffer, dateHired: dateHired || poster.dateHired, birthdayDate: birthdayDate || poster.birthdayDate, posterTemplateKey, side: poster.side };
-    if (!isBackCard && photoData) {
-      const photoBuffer = Buffer.from(photoData.base64, 'base64');
-      job.photoMap.set(normalizeNameKey(fullName), { buffer: photoBuffer, format: photoData.format, originalName: fullName });
+    if (!isBackCard && photoRef?.buffer) {
+      // Reuse the existing Buffer — the old code round-tripped base64 back into a
+      // second copy of the same bytes on every regenerate
+      job.photoMap.set(normalizeNameKey(fullName), { buffer: photoRef.buffer, format: photoRef.format, originalName: fullName });
     }
     // For front edits on two-sided templates, auto-regenerate the paired back card
     const backTemplateKey = job.templateKey === 'multisys-id' ? 'multisys-id-back'
@@ -646,7 +733,7 @@ app.post('/regenerate/:jobId/:index', upload.fields([{ name: 'photo', maxCount: 
 
 // Dev: return job metadata for quick reload without re-uploading
 app.get('/job/:jobId', (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found or expired' });
   res.json({
     status: job.status,
@@ -658,7 +745,7 @@ app.get('/job/:jobId', (req, res) => {
 
 // Dev: reset job so /generate re-renders all posters
 app.post('/job/:jobId/reset', (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found or expired' });
   // Resetting mid-generation would let a second /generate interleave pushes
   // into posters[]/photos[], corrupting every index-based lookup
@@ -672,7 +759,7 @@ app.post('/job/:jobId/reset', (req, res) => {
 
 // Preview: serve individual poster PNG
 app.get('/preview/:jobId/:index', (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   const index = parseInt(req.params.index, 10);
   if (!job || !job.posters[index]) {
     return res.status(404).send('Not found');
@@ -683,16 +770,26 @@ app.get('/preview/:jobId/:index', (req, res) => {
 
 // Download paired-card template as PDF (front + back)
 app.get('/download-pdf/:jobId/:empIdx', async (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   const empIdx = parseInt(req.params.empIdx, 10);
-  const frontIdx = empIdx * 2;
-  const backIdx  = empIdx * 2 + 1;
-  if (!job || !job.posters[frontIdx]) return res.status(404).json({ error: 'Poster not found.' });
+  // Locate the Nth front by scanning sides. `empIdx * 2` assumed every employee
+  // produced exactly two posters — if a back template fails to load, one poster is
+  // pushed per employee and every index past the first pointed at the wrong person.
+  if (!job) return res.status(404).json({ error: 'Poster not found.' });
+  let frontIdx = -1, seen = 0;
+  for (let i = 0; i < job.posters.length; i++) {
+    if (job.posters[i].side === 'back') continue;
+    if (seen === empIdx) { frontIdx = i; break; }
+    seen++;
+  }
+  if (frontIdx < 0) return res.status(404).json({ error: 'Poster not found.' });
+  const next = job.posters[frontIdx + 1];
+  const backIdx = (next && next.side === 'back') ? frontIdx + 1 : -1;
   const cfg = PDF_CONFIG[job.templateKey];
   if (!cfg) return res.status(400).json({ error: 'PDF download not supported for this template.' });
   try {
     const frontBuf = job.posters[frontIdx].buffer;
-    const backBuf  = job.posters[backIdx]?.buffer || null;
+    const backBuf  = backIdx >= 0 ? job.posters[backIdx].buffer : null;
     const empName  = job.posters[frontIdx].name || '';
     const pdfBuffer = await renderPdf(frontBuf, backBuf, { pageWidth: cfg.pageWidth, pageHeight: cfg.pageHeight });
     const fileBase = headerSafe(`${lastFirst(empName)}-${cfg.label}`);
@@ -711,12 +808,39 @@ function headerSafe(s) {
 
 // Download ZIP
 app.get('/download/:jobId', async (req, res) => {
-  const job = jobs.get(req.params.jobId);
+  const job = ownedJob(req, req.params.jobId);
   if (!job || !job.posters.length) {
     return res.status(404).json({ error: 'No ZIP available. Run generation first.' });
   }
   // String() — a repeated query param arrives as an array and .replace would throw
   const suffix = String(req.query.suffix || '');
+
+  // Templates whose single-poster download is a 2-page PDF ("Save PDF") must ZIP
+  // as PDFs too — front+back paired per employee, not raw PNG sides.
+  const pdfCfg = PDF_CONFIG[job.templateKey];
+  if (pdfCfg) {
+    try {
+      const pairs = [];
+      const names = [];
+      for (let i = 0; i < job.posters.length; i++) {
+        const p = job.posters[i];
+        if (p.side === 'back') continue; // consumed alongside its front
+        const next = job.posters[i + 1];
+        pairs.push({ front: p.buffer, back: (next && next.side === 'back') ? next.buffer : null });
+        names.push(`${lastFirst(p.name)}-${suffix || pdfCfg.label}`);
+      }
+      const pdfs = await renderPdfBatch(pairs, { pageWidth: pdfCfg.pageWidth, pageHeight: pdfCfg.pageHeight });
+      const zipBuffer = await buildZip(pdfs.map((buffer, i) => ({ buffer, name: names[i], ext: 'pdf' })));
+      const zipName = headerSafe(suffix ? `${suffix}.zip` : `${ZIP_NAMES[job.templateKey] || 'Posters'}.zip`);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+      res.setHeader('Content-Length', zipBuffer.length);
+      return res.send(zipBuffer);
+    } catch (err) {
+      return res.status(500).json({ error: 'ZIP generation failed: ' + err.message });
+    }
+  }
+
   const named = job.posters.map(p => {
     const sideTag = p.side === 'back' ? '-Back' : '';
     let base, prefix;
@@ -759,8 +883,8 @@ function buildZip(posters) {
     archive.on('error', reject);
     archive.pipe(pass);
 
-    for (const { name, buffer } of posters) {
-      archive.append(buffer, { name: `${name}.png` });
+    for (const { name, buffer, ext } of posters) {
+      archive.append(buffer, { name: `${name}.${ext || 'png'}` });
     }
 
     archive.finalize();
@@ -769,8 +893,21 @@ function buildZip(posters) {
 
 // JSON error handler — asyncH-forwarded rejections land here instead of hanging
 app.use((err, req, res, next) => {
-  console.error('[error]', req.method, req.path, err.message);
+  console.error('[error]', req.method, req.path, err.code || '', err.message);
   if (res.headersSent) return next(err);
+  // Multer limit breaches are user-fixable; a generic 500 tells the user nothing
+  // about which file to shrink or how many they may send.
+  const MULTER_MESSAGES = {
+    LIMIT_FILE_SIZE:      ['One of the files is over the 20 MB limit — shrink it and try again.', 413],
+    LIMIT_FILE_COUNT:     ['Too many files in one upload — keep it under 1000 photos/signatures plus the CSV.', 413],
+    LIMIT_PART_COUNT:     ['Too many parts in one upload — split the batch and try again.', 413],
+    LIMIT_FIELD_KEY:      ['A form field name was too long.', 400],
+    LIMIT_FIELD_VALUE:    ['A form field value was too long.', 400],
+    LIMIT_FIELD_COUNT:    ['Too many form fields in one request.', 400],
+    LIMIT_UNEXPECTED_FILE:['Unexpected file field — only csv, photos and signatures are accepted.', 400],
+  };
+  const hit = MULTER_MESSAGES[err.code];
+  if (hit) return res.status(hit[1]).json({ error: hit[0] });
   res.status(500).json({ error: 'Internal server error' });
 });
 
