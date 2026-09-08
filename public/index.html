@@ -1240,10 +1240,11 @@
           </div>
 
           <div id="manualSignatureSection" style="display:none">
-            <div class="id-section-header">Signature</div>
+            <div class="id-section-header">Signature <span style="color:#cc3333">*</span></div>
             <div class="upload-zone" id="manualSignatureZone" style="padding:10px 14px">
               <input type="file" id="manualSignatureInput" accept=".png" />
-              <div class="zone-label" id="manualSignatureLabel">Click to upload signature PNG (optional)</div>
+              <div class="zone-label" id="manualSignatureLabel">Click to upload signature</div>
+              <div class="zone-sub">PNG preferred for transparent backgrounds</div>
             </div>
           </div>
 
@@ -1524,8 +1525,9 @@
 
 
   const _isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const _sigHint = '(optional)';
-  document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
+  const _sigHint = '(optional)'; // edit modal only — replacing an existing signature is optional
+  const SIG_LABEL = 'Click to upload signature';
+  document.getElementById('manualSignatureLabel').textContent = SIG_LABEL;
   document.getElementById('editSignatureLabel').textContent = `Replace signature ${_sigHint}`;
 
   if (_isDev) {
@@ -1702,7 +1704,7 @@
     document.getElementById('signatureZone').classList.remove('has-file');
     document.getElementById('signatureList').innerHTML = '';
     document.getElementById('manualSignatureInput').value = '';
-    document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
+    document.getElementById('manualSignatureLabel').textContent = SIG_LABEL;
     document.getElementById('manualSignatureZone').classList.remove('has-file');
     renderManualList();
     setError('');
@@ -2448,7 +2450,7 @@
     const raw = this.files[0] || null;
     currentManualSignature = raw ? await removeSigBackground(raw) : null;
     document.getElementById('manualSignatureLabel').textContent = currentManualSignature
-      ? `✓ ${currentManualSignature.name}` : `Click to upload signature PNG ${_sigHint}`;
+      ? `✓ ${currentManualSignature.name}` : SIG_LABEL;
     document.getElementById('manualSignatureZone').classList.toggle('has-file', !!currentManualSignature);
   });
 
@@ -2513,6 +2515,7 @@
       if (!contactName)    missingFields.push('Contact Name');
       if (!contactAddress) missingFields.push('Contact Address');
       if (!contactNumber)  missingFields.push('Contact Number');
+      if (!currentManualSignature) missingFields.push('Signature');
     }
     if (selectedTemplate === 'anniversary') {
       if (!years)     missingFields.push('Years at the Company');
@@ -2521,7 +2524,7 @@
     if (selectedTemplate === 'birthday' && !birthday) missingFields.push('Birthday');
     if (missingFields.length) {
       setManualError('Please fill in: ' + missingFields.join(', ') + '.');
-      const _fieldMap = { 'Full Name': 'manualName', 'Position': 'manualPosition', 'Birthday': 'manualBirthday', 'Years at the Company': 'manualYears', 'Date Hired': 'manualDateHired', 'Email': 'manualEmail', 'Contact Number': 'manualMobile', 'Employee Number': 'manualEmployeeNumber', 'Address': 'manualAddress', 'Phone Number': 'manualPhoneNumber', 'PhilHealth Number': 'manualPhilhealth', 'SSS Number': 'manualSss', 'TIN': 'manualTin', 'HDMF': 'manualHdmf', 'Contact Name': 'manualContactName', 'Contact Address': 'manualContactAddress', 'Contact Number (Emergency)': 'manualContactNumber' };
+      const _fieldMap = { 'Full Name': 'manualName', 'Position': 'manualPosition', 'Birthday': 'manualBirthday', 'Years at the Company': 'manualYears', 'Date Hired': 'manualDateHired', 'Email': 'manualEmail', 'Contact Number': 'manualMobile', 'Employee Number': 'manualEmployeeNumber', 'Address': 'manualAddress', 'Phone Number': 'manualPhoneNumber', 'PhilHealth Number': 'manualPhilhealth', 'SSS Number': 'manualSss', 'TIN': 'manualTin', 'HDMF': 'manualHdmf', 'Contact Name': 'manualContactName', 'Contact Address': 'manualContactAddress', 'Contact Number (Emergency)': 'manualContactNumber', 'Signature': 'manualSignatureInput' };
       const _firstId = _fieldMap[missingFields[0]];
       if (_firstId) { const _el = document.getElementById(_firstId); if (_el && _el.offsetParent) _el.focus(); }
       return;
@@ -2609,7 +2612,7 @@
     document.getElementById('photoMatchHint').style.display = 'none';
     currentManualSignature = null;
     document.getElementById('manualSignatureInput').value = '';
-    document.getElementById('manualSignatureLabel').textContent = `Click to upload signature PNG ${_sigHint}`;
+    document.getElementById('manualSignatureLabel').textContent = SIG_LABEL;
     document.getElementById('manualSignatureZone').classList.remove('has-file');
     hideDeptConfirm();
     updateUploadBtn();
@@ -2751,7 +2754,7 @@
         document.getElementById('manualContactNumber').value = (e.contactNumber || '').replace(/^\+63/, '');
         currentManualSignature = e.signatureFile || null;
         document.getElementById('manualSignatureLabel').textContent = currentManualSignature
-          ? `✓ ${currentManualSignature.name}` : `Click to upload signature PNG ${_sigHint}`;
+          ? `✓ ${currentManualSignature.name}` : SIG_LABEL;
         document.getElementById('manualSignatureZone').classList.toggle('has-file', !!currentManualSignature);
         currentManualPhoto = e.photoFile;
         const label = document.getElementById('manualPhotoLabel');
