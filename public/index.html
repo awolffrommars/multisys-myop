@@ -3448,6 +3448,9 @@
 
   // Restart
   document.getElementById('restartBtn').addEventListener('click', () => {
+    // Start Over means "another batch of the same poster", so remember which
+    // template was in use and re-select it once everything else is reset
+    const prevTemplate = selectedTemplate;
     currentJobId = null;
     currentEmployees = [];
     lightboxEmployees = [];
@@ -3457,6 +3460,24 @@
     document.querySelectorAll('.template-option').forEach(o => o.classList.remove('active'));
     document.getElementById('employeesCard').classList.add('locked');
     clearAllFields();
+
+    // Re-select via a real click so it takes the same path as a manual pick
+    // (active state, aria-pressed, card unlock, onTemplateChange). selectOpt sees
+    // selectedTemplate === null, so it will NOT clearAllFields() a second time.
+    if (prevTemplate) {
+      const opt = document.querySelector('.template-option.tpl-' + prevTemplate + ':not(.disabled)');
+      if (opt) {
+        // Calling Card and Multisys ID sit in the collapsed "More Templates" row —
+        // open it, or the restored selection would be highlighted out of sight
+        const extra = document.getElementById('extraTemplatesGrid');
+        if (extra && extra.contains(opt) && extra.style.display === 'none') {
+          extra.style.display = '';
+          const arrow = document.getElementById('moreTemplatesArrow');
+          if (arrow) arrow.textContent = '▼';
+        }
+        opt.click();
+      }
+    }
     goToStep(1);
   });
 
