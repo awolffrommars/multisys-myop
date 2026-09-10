@@ -105,10 +105,10 @@ Choose from the five templates. Calling Card and Multisys ID are under **More Te
 1. Upload a CSV matching the template format (see below)
 2. Upload employee photos as PNGs — filenames must match employee names
 3. Mismatched or duplicate photos are flagged in the list
-4. Multisys ID: optionally upload signature PNGs in the signature zone
+4. Multisys ID: upload signature PNGs in the signature zone — matched by filename like photos. A missing photo or signature is flagged in the preview table with an inline upload button, so batch uploads are not blocked by one.
 
 **Manual Entry tab:**
-1. Fill in employee fields and optionally attach a photo
+1. Fill in employee fields and attach a photo. Every field marked with a red `*` is required — for **Multisys ID** that is all of them, including the photo and the signature; for the other templates the photo is optional.
 2. Click **+ Add Employee** — warns if department/division is empty, photo filename doesn't match, or name is a duplicate
 3. Click ✎ to edit a listed employee (current form auto-saves before loading)
 4. Repeat for all employees, then click **Upload & Preview**

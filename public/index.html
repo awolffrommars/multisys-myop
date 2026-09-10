@@ -1527,6 +1527,14 @@
   const _isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const _sigHint = '(optional)'; // edit modal only — replacing an existing signature is optional
   const SIG_LABEL = 'Click to upload signature';
+  // The manual photo zone is shared by all templates, but only Multisys ID requires
+  // a photo — so the "(optional)" wording has to be template-aware. Constant strings
+  // only (no user data), hence innerHTML for the red asterisk.
+  function manualPhotoLabelHtml() {
+    return selectedTemplate === 'multisys-id'
+      ? 'Photo <span style="color:#cc3333">*</span> — click or drop'
+      : 'Photo (optional) — click or drop';
+  }
   document.getElementById('manualSignatureLabel').textContent = SIG_LABEL;
   document.getElementById('editSignatureLabel').textContent = `Replace signature ${_sigHint}`;
 
@@ -1665,7 +1673,7 @@
     document.getElementById('photoRemoveBtn').style.display = 'none';
     document.getElementById('photoLabel').textContent = photoZoneLabel();
     document.getElementById('photoSub').textContent = photoZoneSub();
-    document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
+    document.getElementById('manualPhotoLabel').innerHTML = manualPhotoLabelHtml();
     document.getElementById('extraNumbersList').innerHTML = '';
     document.getElementById('addNumberBtn').style.display = 'none';
     document.getElementById('manualName').value = '';
@@ -1864,6 +1872,7 @@
     const sigListBatch = document.getElementById('signatureList');
     if (sigZoneBatch) { sigZoneBatch.style.display = isMultisysId ? '' : 'none'; sigListBatch.style.display = isMultisysId ? '' : 'none'; }
     document.getElementById('generateBtn').textContent = generateBtnLabel();
+    if (!currentManualPhoto) document.getElementById('manualPhotoLabel').innerHTML = manualPhotoLabelHtml();
     // Photo-zone copy is template-specific — refresh it when no files are staged
     if (!photoFiles.length) {
       document.getElementById('photoLabel').textContent = photoZoneLabel();
@@ -2439,8 +2448,9 @@
   const manualPhotoInput = document.getElementById('manualPhotoInput');
   manualPhotoInput.addEventListener('change', () => {
     currentManualPhoto = manualPhotoInput.files[0] || null;
-    document.getElementById('manualPhotoLabel').textContent = currentManualPhoto
-      ? `✓ ${currentManualPhoto.name}` : 'Photo (optional) — click or drop';
+    const _pl = document.getElementById('manualPhotoLabel');
+    if (currentManualPhoto) _pl.textContent = `✓ ${currentManualPhoto.name}`;
+    else                    _pl.innerHTML   = manualPhotoLabelHtml();
     document.getElementById('manualPhotoZone').classList.toggle('has-file', !!currentManualPhoto);
     checkPhotoMatch();
   });
@@ -2515,6 +2525,7 @@
       if (!contactName)    missingFields.push('Contact Name');
       if (!contactAddress) missingFields.push('Contact Address');
       if (!contactNumber)  missingFields.push('Contact Number');
+      if (!currentManualPhoto)     missingFields.push('Photo');
       if (!currentManualSignature) missingFields.push('Signature');
     }
     if (selectedTemplate === 'anniversary') {
@@ -2524,7 +2535,7 @@
     if (selectedTemplate === 'birthday' && !birthday) missingFields.push('Birthday');
     if (missingFields.length) {
       setManualError('Please fill in: ' + missingFields.join(', ') + '.');
-      const _fieldMap = { 'Full Name': 'manualName', 'Position': 'manualPosition', 'Birthday': 'manualBirthday', 'Years at the Company': 'manualYears', 'Date Hired': 'manualDateHired', 'Email': 'manualEmail', 'Contact Number': 'manualMobile', 'Employee Number': 'manualEmployeeNumber', 'Address': 'manualAddress', 'Phone Number': 'manualPhoneNumber', 'PhilHealth Number': 'manualPhilhealth', 'SSS Number': 'manualSss', 'TIN': 'manualTin', 'HDMF': 'manualHdmf', 'Contact Name': 'manualContactName', 'Contact Address': 'manualContactAddress', 'Contact Number (Emergency)': 'manualContactNumber', 'Signature': 'manualSignatureInput' };
+      const _fieldMap = { 'Full Name': 'manualName', 'Position': 'manualPosition', 'Birthday': 'manualBirthday', 'Years at the Company': 'manualYears', 'Date Hired': 'manualDateHired', 'Email': 'manualEmail', 'Contact Number': 'manualMobile', 'Employee Number': 'manualEmployeeNumber', 'Address': 'manualAddress', 'Phone Number': 'manualPhoneNumber', 'PhilHealth Number': 'manualPhilhealth', 'SSS Number': 'manualSss', 'TIN': 'manualTin', 'HDMF': 'manualHdmf', 'Contact Name': 'manualContactName', 'Contact Address': 'manualContactAddress', 'Contact Number (Emergency)': 'manualContactNumber', 'Signature': 'manualSignatureInput', 'Photo': 'manualPhotoInput' };
       const _firstId = _fieldMap[missingFields[0]];
       if (_firstId) { const _el = document.getElementById(_firstId); if (_el && _el.offsetParent) _el.focus(); }
       return;
@@ -2607,7 +2618,7 @@
     document.getElementById('dateHiredSpellingHint').style.display = 'none';
     currentManualPhoto = null;
     manualPhotoInput.value = '';
-    document.getElementById('manualPhotoLabel').textContent = 'Photo (optional) — click or drop';
+    document.getElementById('manualPhotoLabel').innerHTML = manualPhotoLabelHtml();
     document.getElementById('manualPhotoZone').classList.remove('has-file');
     document.getElementById('photoMatchHint').style.display = 'none';
     currentManualSignature = null;
@@ -2763,7 +2774,7 @@
           label.textContent = `✓ ${e.photoFile.name}`;
           zone.classList.add('has-file');
         } else {
-          label.textContent = 'Photo (optional) — click or drop';
+          label.innerHTML = manualPhotoLabelHtml();
           zone.classList.remove('has-file');
         }
         manualEmployees.splice(i, 1);
