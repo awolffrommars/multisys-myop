@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Pending Work
 
 - **Google Drive + README:** Upload the seven template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
-- **Deploy:** Up to date as of 2026-09-10. Recent chain: `6194020` (loose photo matching + PDF ZIPs + browser/memory/ownership fixes) → `baaf1aa` (dev:noauth) → `9a2ddb5` (doc sweep) → `e1a13b3` (Start Over restores template; required-field doc fixes) → `3989afb` (signature required in ID manual entry) → this commit (photo required in ID manual entry). Includes the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`. Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
+- **Deploy:** Up to date as of 2026-10-30. Recent chain: `6194020` (loose photo matching + PDF ZIPs + browser/memory/ownership fixes) → `baaf1aa` (dev:noauth) → `9a2ddb5` (doc sweep) → `e1a13b3` (Start Over restores template; required-field doc fixes) → `3989afb` (signature required in ID manual entry) → `2221d22` (photo required in ID manual entry) → this commit (anniversary face centring + large-portrait resampling quality fix). Includes the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`. Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
   **Do NOT push until the user asks** — changes batch up locally. When they do ask, sweep every affected file FIRST (CLAUDE.md, README.md, SETUP.md, HANDOFF.md, package.json, and the memory files) and then commit once; edits made after `./deploy.sh` runs leave a trailing dirty tree, which happened twice on 2026-09-02.
   **`deploy.sh` pushes GitHub first, HuggingFace second, with no rollback between them** — a mid-script failure (e.g. expired git credentials, as happened 2026-09-08) leaves the Space behind GitHub. Always confirm both remotes after a deploy that errored. If GitHub auth fails, `gh auth setup-git` points git at the existing `gh` login.
 - **Verified 2026-09-02 against the auth-free instance** (`npm run dev:noauth`): prepare → generate → preview → regenerate → download, including loose matching on a partial+junk-suffixed filename, a regenerate with no photo re-upload (buffer-reference path), and a ZIP containing a real 2-page PDF. No auth-gated gaps remain.
@@ -132,6 +132,22 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 - **Escaping (do NOT remove):** every text field goes through `escapeHtml()` before substitution — CSV cells must never execute as markup inside the render browser. All `replaceAll` calls use FUNCTION-form replacements (`() => value`): a plain string replacement makes `$&`/`` $` ``/`$$` in the data act as regex substitution patterns (re-injecting tokens / duplicating template HTML). Anniversary position `<br>` is inserted AFTER escaping each half.
 - **Image decode guard (do NOT remove):** after `document.fonts.ready`, `renderPoster` awaits `img.decode()` for every `document.images` entry, then two `requestAnimationFrame` ticks before `page.screenshot()`. `setContent(..., {waitUntil:'load'})` only guarantees bytes arrived, not that the bitmap is decoded/composited — a 10 MB 2500x4300 portrait on the 1920x3050 ID canvas can otherwise capture half-painted. Added 2026-08-20 as hardening; the failure was NOT reproduced locally (8/8 renders complete both with and without it), so it is defensive, not a confirmed fix.
 - **Browser lifecycle (do NOT revert to a resolved-browser singleton):** `getBrowser()` memoizes the launch **promise** (`browserPromise`), not the resolved browser. The old `if (!browser) browser = await puppeteer.launch()` let both renders of a `CONCURRENCY=2` `Promise.all` pass the null check before either awaited — two Chromiums launched, the second assignment orphaned the first, and it survived as a ~80 MB process reparented to init. Confirmed live (orphans up to 3 days old on the dev machine). A `disconnected` listener clears the memo so a crashed browser isn't cached as a dead handle, and a failed launch clears it so the next call retries. `closeBrowser()` is still a no-op while `activeRenders > 0` (two concurrent batches share the browser; unconditional close killed the other batch with "Target closed") and now clears the memo *before* awaiting the close. Every render's page is closed in a `finally` (error paths leaked pages).
+- **Pre-downscale of large portraits (do NOT remove — this is a QUALITY fix, all templates):** Chromium
+  **point-samples** a very large image when compositing it into a much smaller box. A 2615x5489 (14 MP)
+  portrait drawn into the 529x607 anniversary polaroid came out matching NEAREST-neighbour *exactly*
+  (noise 14.1 vs 5.7 for a properly filtered downscale — and worse than the source's own 8.4), because
+  sensor grain gets sampled instead of averaged and aliasing adds more on top. The output was visibly
+  noisier than the input. After the centring pass (so the final transform scale is known), every image
+  whose natural size exceeds 1.3x its rendered size is resampled on a canvas by **successive halving**
+  (each step <=2x, which filters cleanly, `imageSmoothingQuality: 'high'`) down to exactly
+  `naturalSize * k * sc` where `k = max(boxW/naturalW, boxH/naturalH)` — so the browser then draws ~1:1
+  and resamples nothing. The 1920px template background is already 1:1 and is skipped by the guard.
+  Falls through untouched on a tainted canvas or OOM.
+  Measured 2026-10-21 on one 14 MP portrait: anniversary **-86%** noise, new-employee -69%, birthday
+  -37%, multisys-id -34% (the last two downscale less because their photo boxes are far bigger, so less
+  grain can be averaged away — what remains is the portrait's own). Renders also got *faster*
+  (anniversary 10.0s -> 7.6s) and smaller (615 KB -> 477 KB) since the compositor no longer handles a
+  14 MP bitmap.
 - **Auto-fit (all templates):** After `document.fonts.ready`, an `AUTOFIT` pass in `renderPoster` measures each configured overlay's real rendered text width (via `document.createRange()` — NOT `scrollWidth`, which is floored at element width for fixed-width overlays) and shrinks font 1px at a time (floor 16px) until it fits. Uses `el.style.setProperty('font-size', ..., 'important')` so it beats the `config.nameFontSize !important` injection. Limits: new-employee/birthday name → parent column width; anniversary first/last name → 1030px (photo starts x=1155); calling-card name+position → 1400px; multisys-id first/last/position → 1700px. This replaced ALL char-count guards (new-employee >24 chars, calling-card >20/>26 chars) — do not re-add them.
 - **New Employee:** Full Name has `white-space: nowrap`. Font wait uses `await page.evaluate(async () => await document.fonts.ready)`. Photo img has `position:relative; top:30px` — 30px headroom above the head, bottom 30px cropped by `overflow:hidden`.
 - **Birthday:** Full Name renders at 57px with `white-space: nowrap` (auto-fit shrinks only if it overflows the 780px block).
@@ -216,33 +232,44 @@ Canvas: 1920×1081. Source template PNG: `Work Anniversary_Template.png` (1920×
 
 **Photo overlay** (covers the orange placeholder inside the polaroid):
 ```css
-left: 1155px; top: 151px; width: 529px; height: 627px; overflow: hidden;
+left: 1155px; top: 171px; width: 529px; height: 607px; overflow: hidden;
 /* img: object-fit: cover; object-position: center top; transform: scale(1.2); transform-origin: center top */
 ```
+Measured from the template PNG (2026-09-29): the white polaroid is x 1118..1721, y 109..972; its
+orange placeholder is x 1154..1683, y 150..777 — i.e. the opening is **already centred** in the card
+(36px left margin vs 38px right), and the frame has no rotation. Do not "re-centre" the overlay.
 
-**Text overlays** (left side — aligned to template placeholder pixel rows):
-```css
-/* First name */
-left: 125px; top: 277px; font-size: 95px; font-weight: 800; color: #fff;
+**Face centring (`templateKey === 'anniversary'` pass in `renderPoster`).** `object-fit: cover`
+centres the image *box*, so a cut-out whose person sits off-centre in their own PNG renders
+off-centre. Centring the silhouette is not enough either — crossed arms or hair falling to one side
+drag a silhouette centroid away from the face. The pass therefore locates the **face**:
 
-/* Last name */
-left: 125px; top: 396px; font-size: 95px; font-weight: 800; color: #fff;
+1. Draw the portrait to a downsampled canvas (320px wide) and read RGBA.
+2. **Opacity guard — measure the TRANSPARENT FRACTION** (`< 2%` transparent → opaque photo, no-op).
+   Do NOT test whether the alpha bbox touches the side edges: a tightly cropped cut-out touches both
+   edges too, and that test silently skipped **13 of the 14** real demo portraits (23-47% transparent),
+   which is why centring appeared to do nothing on live photos.
+3. **Skin-tone centroid** over the upper 45% of the subject (so hands/forearms can't contribute), with
+   the 5%/95% tails trimmed. Falls back to a head-band centroid (rows above the detected shoulder
+   line, found as the first row >1.5x the crown width), then to the silhouette midpoint, when skin
+   detection finds < 40 samples.
+4. Rewrite the transform to `scale(sc) translateX(t)`. `translateX` is *inside* `scale()`, so its
+   visual effect is `sc x t`; `t = renderedW * (0.5 - faceCentreFraction)`,
+   `renderedW = naturalWidth * max(boxW/naturalWidth, boxH/naturalHeight)`. `sc` is read from the
+   computed transform, not hardcoded.
+5. Shifting is bounded by `|t| <= renderedW/2 - boxW/(2*sc)` or the placeholder shows at an edge. When
+   a face is too far off for the template zoom to absorb, **sc is raised just enough**
+   (`boxW / (renderedW - 2|t|)`, bounded by `1.6x` the template value and an absolute `2.2`).
+   `transform-origin: center top` means that extra zoom crops the waist, never the head.
 
-/* Position */
-left: 118px; top: 654px; font-size: 35px; font-weight: 700; color: #fff; text-transform: uppercase;
+Measured across all 14 demo portraits (2026-09-29): **mean |face offset| 14px -> 4px** on a 529px
+opening; the worst cases (-52, +30, +22, -19, -17px) all land within ±6px. Four portraits moved a few
+px the other way (worst -7 -> +11) — skin-detection noise from beards and warm clothing.
 
-/* Division */
-left: 118px; top: 733px; font-size: 32px; font-weight: 400; color: #fff;
-
-/* Department */
-left: 118px; top: 813px; font-size: 32px; font-weight: 400; color: #fff;
-```
-
-**Years overlay** (centered in the polaroid white strip at the bottom):
-```css
-left: 1419px; top: 875px; transform: translate(-50%, -50%);
-font-size: 89px; font-weight: 800; color: #eb6004;
-```
+**Measuring this yourself — the trap:** the placeholder orange `(235,99,38)` passes a naive RGB skin
+test (`r>95, g>40, b>20, r>g>b`), so a detector that forgets to exclude it measures the *background*
+and returns nonsense. Exclude near-`(235,99,38)` and require `b >= 58`. The renderer itself is immune —
+it reads the source PNG, where that background is transparent.
 
 **"WORK ANNIVERSARY" label** (right white border of polaroid, rotated -90°):
 ```css

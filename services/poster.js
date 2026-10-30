@@ -297,6 +297,228 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       }));
     });
 
+    // Centre the SUBJECT, not the image (anniversary polaroid).
+    // `object-fit: cover` centres the image BOX; a transparent cut-out whose person
+    // sits off-centre inside their own PNG therefore renders off-centre in the
+    // polaroid — and with the 1.2x zoom the far shoulder gets cropped at the frame
+    // edge. Measure the alpha bounding box in the render browser and translate by the
+    // difference. No-op for opaque photos (alpha spans the full width), for a fully
+    // transparent file, or if the canvas read throws.
+    if (templateKey === 'anniversary') {
+      await page.evaluate(() => {
+        const box = document.querySelector('.photo-overlay');
+        const img = box && box.querySelector('img');
+        if (!img || !img.naturalWidth) return;
+
+        let frac;
+        try {
+          const MAX = 320;                       // downsample — we only need geometry
+          const sc0 = Math.min(1, MAX / img.naturalWidth);
+          const c = document.createElement('canvas');
+          c.width  = Math.max(1, Math.round(img.naturalWidth  * sc0));
+          c.height = Math.max(1, Math.round(img.naturalHeight * sc0));
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          const d = ctx.getImageData(0, 0, c.width, c.height).data;
+
+          // per-row opaque extents
+          const rows = [];
+          for (let y = 0; y < c.height; y++) {
+            let minX = c.width, maxX = -1, count = 0, sumX = 0;
+            const base = y * c.width;
+            for (let x = 0; x < c.width; x++) {
+              if (d[(base + x) * 4 + 3] > 24) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                count++; sumX += x;
+              }
+            }
+            if (maxX >= 0) rows.push({ y, minX, maxX, w: maxX - minX + 1, count, sumX });
+          }
+          if (!rows.length) return;                               // nothing opaque
+
+          const top = rows[0].y, bot = rows[rows.length - 1].y;
+          const subjH = bot - top + 1;
+          const gMinX = Math.min.apply(null, rows.map(r => r.minX));
+          const gMaxX = Math.max.apply(null, rows.map(r => r.maxX));
+
+          // Is this actually an opaque photo? Measure the TRANSPARENT FRACTION, not
+          // whether the silhouette touches the side edges — a tightly cropped cut-out
+          // touches both edges too, and testing for that skipped 13 of 14 real
+          // portraits (23-47% transparent), which is why centring appeared to do
+          // nothing on live photos.
+          let clear = 0, total = 0;
+          for (let y = 0; y < c.height; y += 2) {
+            const base = y * c.width;
+            for (let x = 0; x < c.width; x += 2) { total++; if (d[(base + x) * 4 + 3] <= 24) clear++; }
+          }
+          if (!total || clear / total < 0.02) return;              // opaque photo — nothing to centre
+
+          // Centre on the HEAD, not the silhouette: crossed arms, an outstretched
+          // elbow or hair falling to one side drag a whole-body centroid sideways
+          // and push the face off-centre. Find the shoulder line as the first row
+          // meaningfully wider than the crown, and use only the rows above it.
+          const crown = rows.filter(r => r.y <= top + Math.max(2, subjH * 0.08))
+                            .map(r => r.w).sort((a, b) => a - b);
+          const headW = crown.length ? crown[Math.floor(crown.length / 2)] : 0;
+          let shoulderY = null;
+          if (headW > 0) {
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i];
+              if (r.y < top + subjH * 0.05) continue;              // skip the crown itself
+              if (r.w > headW * 1.5) { shoulderY = r.y; break; }
+            }
+          }
+          const bandEnd = Math.min(
+            shoulderY === null ? top + subjH * 0.25 : shoulderY,
+            top + subjH * 0.35);                                   // never more than a third
+          const band = rows.filter(r => r.y >= top && r.y <= bandEnd);
+
+          // Prefer the FACE itself. Silhouette mass — even restricted to the head
+          // band — is dragged sideways by long hair falling to one side, which
+          // over-corrects and pushes the face past centre the other way. Skin tone
+          // finds the face directly. Search the upper 45% of the subject so hands
+          // and forearms can't contribute.
+          let cx = null;
+          const faceLimit = top + subjH * 0.45;
+          const sx = [];
+          for (let y = top; y <= Math.min(bot, faceLimit); y++) {
+            const base = y * c.width;
+            for (let x = 0; x < c.width; x++) {
+              const i = (base + x) * 4;
+              if (d[i + 3] <= 24) continue;                        // transparent
+              const r = d[i], g = d[i + 1], b = d[i + 2];
+              const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+              if (r > 95 && g > 40 && b > 20 && (mx - mn) > 15 &&
+                  Math.abs(r - g) > 15 && r > g && r > b &&
+                  !(r > 235 && g > 235 && b > 235)) {
+                sx.push(x);
+              }
+            }
+          }
+          if (sx.length >= 40) {
+            sx.sort((a, b2) => a - b2);
+            // trim the tails: warm highlights on hair/clothing are not the face
+            const lo = sx[Math.floor(sx.length * 0.05)];
+            const hi = sx[Math.floor(sx.length * 0.95)];
+            const core = sx.filter(v => v >= lo && v <= hi);
+            cx = core.reduce((a, v) => a + v, 0) / core.length;
+          }
+
+          // Fallbacks when skin detection finds too little (unusual lighting, very
+          // dark skin tones, a masked face): head band centroid, then silhouette.
+          if (cx === null) {
+            if (band.length) {
+              const mass = band.reduce((a, r) => a + r.count, 0);
+              cx = mass > 0 ? band.reduce((a, r) => a + r.sumX, 0) / mass
+                            : (gMinX + gMaxX) / 2;
+            } else {
+              cx = (gMinX + gMaxX) / 2;
+            }
+          }
+          frac = cx / c.width;                                     // face centre, 0..1 of the source
+        } catch (e) { return; }
+
+        // object-fit: cover scales the source by k and centres it in the box
+        const bw = box.clientWidth, bh = box.clientHeight;
+        const k = Math.max(bw / img.naturalWidth, bh / img.naturalHeight);
+        const renderedW = img.naturalWidth * k;
+
+        // keep whatever scale the template defines rather than hardcoding 1.2
+        let sc = 1;
+        try {
+          const m = new DOMMatrixReadOnly(getComputedStyle(img).transform);
+          if (m && m.a) sc = m.a;
+        } catch (e) {}
+
+        // translateX sits INSIDE scale(), so its visual effect is sc x the value
+        let t = renderedW * (0.5 - frac);
+
+        // How far we may shift before the empty placeholder shows at an edge:
+        //   |t| <= renderedW/2 - bw/(2*sc)
+        const room = (z) => Math.max(0, renderedW / 2 - bw / (2 * z));
+
+        // A strongly off-centre subject needs more overscan than the template's zoom
+        // provides. Rather than give up and leave the face off-centre, zoom in just
+        // enough to buy the headroom — solving the above for sc. `transform-origin`
+        // is `center top`, so the extra zoom crops the waist, never the head.
+        if (Math.abs(t) > room(sc)) {
+          const denom = renderedW - 2 * Math.abs(t);
+          const need = denom > 0 ? bw / denom : Infinity;
+          sc = Math.min(Math.max(sc, need), sc * 1.6, 2.2);   // bounded: no runaway zoom
+        }
+        t = Math.max(-room(sc), Math.min(room(sc), t));
+        img.style.setProperty('transform', `scale(${sc.toFixed(4)}) translateX(${t.toFixed(1)}px)`, 'important');
+      });
+    }
+
+    // Pre-downscale big portraits with real filtering.
+    // Chromium POINT-SAMPLES a very large image when compositing it into a much
+    // smaller box: a 2615x5489 portrait in the 529x607 polaroid came out matching
+    // NEAREST-neighbour exactly (noise 14.1 vs 5.7 for a filtered downscale, and
+    // noisier than the 8.4 of the source itself), because sensor noise is sampled
+    // instead of averaged. Resample on a canvas by successive halving — each step
+    // is <=2x, which filters cleanly — down to the exact size the element renders
+    // at, so the browser then draws ~1:1 and resamples nothing.
+    //
+    // Runs AFTER the centring pass so the final transform scale is known, and the
+    // centring measurement still gets to read the full-resolution pixels.
+    await page.evaluate(async () => {
+      const step = (src, w, h) => {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = true;
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(src, 0, 0, w, h);
+        return c;
+      };
+
+      for (const img of Array.from(document.images)) {
+        if (!img.naturalWidth || !img.naturalHeight) continue;
+        const bw = img.clientWidth, bh = img.clientHeight;
+        if (!bw || !bh) continue;
+
+        let sc = 1;
+        try {
+          const m = new DOMMatrixReadOnly(getComputedStyle(img).transform);
+          if (m && m.a) sc = Math.abs(m.a);
+        } catch (e) {}
+
+        // object-fit: cover renders the source at naturalSize * k, then the transform
+        const k = Math.max(bw / img.naturalWidth, bh / img.naturalHeight);
+        const targetW = Math.max(1, Math.ceil(img.naturalWidth  * k * sc));
+        const targetH = Math.max(1, Math.ceil(img.naturalHeight * k * sc));
+
+        // Only worth it when the source is meaningfully larger than it is drawn.
+        // The 1920px template background is already 1:1 and is skipped here.
+        if (img.naturalWidth < targetW * 1.3 && img.naturalHeight < targetH * 1.3) continue;
+
+        try {
+          let cur = img, cw = img.naturalWidth, ch = img.naturalHeight;
+          const need = () => Math.max(targetW / cw, targetH / ch);
+          while (need() <= 0.5) {                 // halve while more than 2x too big
+            cw = Math.max(1, Math.round(cw / 2));
+            ch = Math.max(1, Math.round(ch / 2));
+            cur = step(cur, cw, ch);
+          }
+          const f = need();
+          if (f < 1) {                            // final sub-2x step onto the target
+            cw = Math.max(1, Math.round(cw * f));
+            ch = Math.max(1, Math.round(ch * f));
+            cur = step(cur, cw, ch);
+          }
+          if (cur === img) continue;              // nothing to do
+          const url = cur.toDataURL('image/png');
+          await new Promise((res) => {
+            img.onload = res; img.onerror = res;
+            img.src = url;
+          });
+          if (img.decode) { try { await img.decode(); } catch (e) {} }
+        } catch (e) { /* tainted canvas / OOM — leave the original in place */ }
+      }
+    });
+
     // Auto-fit text overlays: measure the real rendered text width and shrink
     // the font 1px at a time until it fits its column, so long names stay
     // centered/contained instead of overflowing. `max` is an explicit pixel
