@@ -112,7 +112,7 @@ TURSO_AUTH_TOKEN=...
 
 - **ALLOWED_DOMAIN enforced at OAuth:** GoogleStrategy rejects any email that doesn't end with `@${ALLOWED_DOMAIN}` — non-corporate Google accounts can't queue for approval.
 - **`/admin.html` blocked via static:** When `AUTH_ENABLED`, an explicit `app.use('/admin.html', → 403)` sits before `express.static` — the raw HTML is not fetchable without going through the authenticated `/admin` route.
-- **Multer limits:** `/prepare` caps uploads at 20 MB per file and 501 files (500 photos + 1 CSV). Exceeded limits return a 413 from multer before the route handler runs.
+- **Multer limits:** `/prepare` caps uploads at 20 MB per file and 1001 files (500 photos + 500 signatures + 1 CSV), plus a 300 MB total Content-Length cap. The old 501 silently rejected any Multisys ID batch supplying a signature per employee. Limit breaches are translated to 413/400 with actionable text by the JSON error middleware.
 - **Job store TTL:** `jobs` Map entries are evicted 2 hours after `createdAt`; a `.unref()`'d interval runs every 10 minutes.
 - **XSS in admin.html:** All DB-sourced strings written to `innerHTML` go through `esc()` (HTML-escapes `&`, `<`, `>`, `"`).
 - **SSE reconnect race:** `/generate` guard only sends synthetic `complete` when `job.status === 'done'`; mid-batch reconnects get an empty response and retry.

@@ -5,7 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Pending Work
 
 - **Google Drive + README:** Upload the seven template PNGs to a shared Google Drive folder restricted to `@multisyscorp.com`, then update `README.md` — replace the current "contact kfgoting" note with the Drive link and add a note that users must be Multisys employees to access the files.
-- **Deploy:** Up to date as of 2026-10-30. Recent chain: `6194020` (loose photo matching + PDF ZIPs + browser/memory/ownership fixes) → `baaf1aa` (dev:noauth) → `9a2ddb5` (doc sweep) → `e1a13b3` (Start Over restores template; required-field doc fixes) → `3989afb` (signature required in ID manual entry) → `2221d22` (photo required in ID manual entry) → this commit (anniversary face centring + large-portrait resampling quality fix). Includes the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`. Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
+- **Deploy:** Live remotes are at `ff2094f` (2026-10-30). **Uncommitted locally:** the transparent-padding
+  auto-crop pass in `services/poster.js` plus this doc entry — verified on :3001 but NOT pushed, per the
+  "don't push until asked" rule. Recent chain: `6194020` (loose photo matching + PDF ZIPs + browser/memory/ownership fixes) → `baaf1aa` (dev:noauth) → `9a2ddb5` (doc sweep) → `e1a13b3` (Start Over restores template; required-field doc fixes) → `3989afb` (signature required in ID manual entry) → `2221d22` (photo required in ID manual entry) → this commit (anniversary face centring + large-portrait resampling quality fix). Includes the 2026-07-14 hardening batch, see `HARDENING-2026-07-14.md`. Use `./deploy.sh "message"` to commit + ship both remotes. Revert hatch: `git reset --hard backup-pre-hardening`.
   **Do NOT push until the user asks** — changes batch up locally. When they do ask, sweep every affected file FIRST (CLAUDE.md, README.md, SETUP.md, HANDOFF.md, package.json, and the memory files) and then commit once; edits made after `./deploy.sh` runs leave a trailing dirty tree, which happened twice on 2026-09-02.
   **`deploy.sh` pushes GitHub first, HuggingFace second, with no rollback between them** — a mid-script failure (e.g. expired git credentials, as happened 2026-09-08) leaves the Space behind GitHub. Always confirm both remotes after a deploy that errored. If GitHub auth fails, `gh auth setup-git` points git at the existing `gh` login.
 - **Verified 2026-09-02 against the auth-free instance** (`npm run dev:noauth`): prepare → generate → preview → regenerate → download, including loose matching on a partial+junk-suffixed filename, a regenerate with no photo re-upload (buffer-reference path), and a ZIP containing a real 2-page PDF. No auth-gated gaps remain.
@@ -132,6 +134,40 @@ POST /reload-template   — hot-reloads all template PNGs from disk without rest
 - **Escaping (do NOT remove):** every text field goes through `escapeHtml()` before substitution — CSV cells must never execute as markup inside the render browser. All `replaceAll` calls use FUNCTION-form replacements (`() => value`): a plain string replacement makes `$&`/`` $` ``/`$$` in the data act as regex substitution patterns (re-injecting tokens / duplicating template HTML). Anniversary position `<br>` is inserted AFTER escaping each half.
 - **Image decode guard (do NOT remove):** after `document.fonts.ready`, `renderPoster` awaits `img.decode()` for every `document.images` entry, then two `requestAnimationFrame` ticks before `page.screenshot()`. `setContent(..., {waitUntil:'load'})` only guarantees bytes arrived, not that the bitmap is decoded/composited — a 10 MB 2500x4300 portrait on the 1920x3050 ID canvas can otherwise capture half-painted. Added 2026-08-20 as hardening; the failure was NOT reproduced locally (8/8 renders complete both with and without it), so it is defensive, not a confirmed fix.
 - **Browser lifecycle (do NOT revert to a resolved-browser singleton):** `getBrowser()` memoizes the launch **promise** (`browserPromise`), not the resolved browser. The old `if (!browser) browser = await puppeteer.launch()` let both renders of a `CONCURRENCY=2` `Promise.all` pass the null check before either awaited — two Chromiums launched, the second assignment orphaned the first, and it survived as a ~80 MB process reparented to init. Confirmed live (orphans up to 3 days old on the dev machine). A `disconnected` listener clears the memo so a crashed browser isn't cached as a dead handle, and a failed launch clears it so the next call retries. `closeBrowser()` is still a no-op while `activeRenders > 0` (two concurrent batches share the browser; unconditional close killed the other batch with "Target closed") and now clears the memo *before* awaiting the close. Every render's page is closed in a `finally` (error paths leaked pages).
+- **Auto-crop of transparent padding (all templates, added 2026-11-03).** Runs in `renderPoster`
+  straight after the image-decode guard, i.e. BEFORE the anniversary centring pass and before the
+  pre-downscale pass, over `.photo-overlay img, .photo-area img` (so it never touches the template
+  background, signature, QR or logo). A cut-out PNG with empty margins renders its subject too small
+  and off-centre, because `object-fit: cover` fits the PADDED box. The pass measures the alpha
+  bounding box on a 400px downsampled copy (alpha > 24, the same floor the centring pass uses), maps
+  it back to full resolution widened by one downsampled pixel (the downscale blends edge alpha, so the
+  measured box can sit a pixel inside the real silhouette), and redraws the crop via
+  `toBlob` + `URL.createObjectURL` — NOT `toDataURL`, to avoid a base64 pass over a multi-megapixel
+  crop on a 500-employee batch.
+  - **Head-room is safe by construction:** every photo box uses `object-position: center top`, so a
+    trimmed portrait's head sits at the top of the box and cover overflows DOWNWARD. Trimming crops
+    the waist, never the head. This is also why the templates' own head-room (`top: 30px` on
+    new-employee) finally does what it says instead of being added to whatever padding the PNG had.
+  - **Skips opaque photos** (bounding box >= 99% of the image on BOTH axes) so an ordinary photograph
+    is never re-encoded; bails out on a fully transparent file, an implausible (<16px) crop, a tainted
+    canvas or OOM, rendering the photo as-is.
+  - **Measured 2026-11-03 over the 14 demo portraits: 13 are ALREADY tightly cropped** (alpha bbox ==
+    full image) and are skipped. Their 23-47% transparency is the space *around the silhouette* —
+    between arms, beside shoulders — not padding, which is exactly the trap that made the old
+    "alpha bbox touches both side edges" opacity test misfire. Only
+    `Cabugnason-Monica-Bernadine.png` has real padding (401px left, 373px right, 109px top →
+    3247x4871 cropped to 2473x4762). So this pass is a no-op on most uploads and a large correction on
+    the occasional padded one; do not "verify" it with a portrait that is already tight, or it will
+    look like it is doing nothing.
+  - **Known interaction — anniversary "WORK ANNIVERSARY" label.** The rotated label container
+    (`left: 1626px`, width 80) overlaps the photo opening (x 1155..1684) by ~58px, and the 52px glyphs
+    cover ~44px of it. The white label therefore reads cleanly only while that strip of the photo is
+    background. A wide subject whose shoulder fills the frame puts white-on-white there: cropping
+    Monica's padding made her fill the opening and her jacket now sits under the label. This is a
+    PRE-EXISTING fragility of the tuned geometry (a naturally tight wide portrait does the same) and
+    the crop only makes it more likely — the label/overlay positions were deliberately left untouched.
+    Fixing it means moving the label right onto the white border or adding a text shadow, which is a
+    design change the user has not asked for.
 - **Pre-downscale of large portraits (do NOT remove — this is a QUALITY fix, all templates):** Chromium
   **point-samples** a very large image when compositing it into a much smaller box. A 2615x5489 (14 MP)
   portrait drawn into the 529x607 anniversary polaroid came out matching NEAREST-neighbour *exactly*

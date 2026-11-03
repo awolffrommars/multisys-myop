@@ -35,15 +35,15 @@ nohup node server.js > /tmp/poster-server.log 2>&1 &
 
 ### `services/poster.js`
 
-`renderPoster(data, photoData, templateBase64, config, templateKey)`
+`renderPoster(data, photoData, templateBase64, config, templateKey, signatureData)`
 
-- Loads `poster.html` (New Employee), `poster-birthday.html` (Birthday), or `poster-anniversary.html` (Work Anniversary) from disk on each call
-- Replaces all tokens via `.replaceAll()` — not `.replace()` — so duplicate tokens in a template are all substituted
-- Puppeteer browser singleton is reused within a batch; `closeBrowser()` is called in the `finally` block
+- Loads `poster.html` (New Employee), `poster-birthday.html` (Birthday), `poster-anniversary.html` (Work Anniversary), `poster-calling-card.html` (Calling Card) or `poster-multisys-id.html` (Multisys ID) from disk on each call — no startup cache, so editing a template HTML takes effect on the next generation
+- Replaces all tokens via `.replaceAll()` — not `.replace()` — so duplicate tokens in a template are all substituted. Replacements are FUNCTION-form (`() => value`) so `$&`/`` $` ``/`$$` in the data can't act as regex substitution patterns
+- Puppeteer memoizes the launch **promise** (`getBrowser()`), not the resolved browser — two concurrent renders would otherwise both pass a null check and orphan a Chromium. `closeBrowser()` is called in the `finally` block and no-ops while another batch is still rendering
 - Font wait: `await page.evaluate(async () => await document.fonts.ready)` — **NOT** `evaluateHandle` (which returns a handle to the Promise without awaiting it)
-- Uses `waitUntil: 'domcontentloaded'` with `timeout: 60000` — avoids navigation timeout on HuggingFace where Google Fonts CDN is slow
-- **New Employee name sizing:** if `fullName.length > 24`, injects `font-size: 29px !important; text-align: center !important` via a `<style>` tag
-- **Birthday name sizing:** fixed at 57px with `white-space: nowrap` — no shrinking applied
+- Uses `waitUntil: 'load'` with `timeout: 60000`, then awaits `img.decode()` on every image plus two rAF ticks — `load` only means the bytes arrived, not that the bitmap is painted
+- **Image passes, in order:** transparent-padding auto-crop (all templates) → face centring (anniversary only) → pre-downscale of oversized portraits (all templates). Order matters: centring must measure the cropped image, and the downscale needs the final transform scale. See `CLAUDE.md` for the full rationale on each
+- **Name sizing is measured, not guessed:** an `AUTOFIT` pass measures real rendered text width via `document.createRange()` and shrinks 1px at a time down to a 16px floor. This replaced ALL char-count guards (the old New Employee `>24` and calling-card `>20`/`>26` rules) — do not re-add them
 - **Anniversary name splitting:** `fullName` is split into `{{FIRST_NAME}}` (all tokens except last) and `{{LAST_NAME}}` (last token). Single-word name logs a `console.warn` and leaves last-name overlay blank — no crash
 
 ### `services/csv.js`

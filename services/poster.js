@@ -297,6 +297,75 @@ async function renderPoster(data, photoData, templateBase64, config, templateKey
       }));
     });
 
+    // Auto-crop transparent padding off the portrait (all templates).
+    // A cut-out PNG almost always carries empty margins around the person, and as
+    // far as layout is concerned those margins ARE the image: `object-fit: cover`
+    // fits the padded box, so the subject renders smaller than the frame allows,
+    // and off-centre whenever the padding is lopsided. Trimming to the alpha
+    // bounding box removes the cause that the anniversary centring pass below
+    // otherwise has to correct for, and makes every template frame the person
+    // instead of their export canvas.
+    //
+    // Head-room is safe by construction: every photo box uses `object-position:
+    // center top`, so a trimmed portrait's head sits at the top of the box and
+    // cover overflows DOWNWARD — trimming can never cut a head off, it crops the
+    // waist. Opaque photos (bounding box == image) are skipped so an ordinary
+    // photograph is never re-encoded; a tainted canvas or OOM falls through and
+    // renders the photo as-is.
+    await page.evaluate(async () => {
+      for (const img of Array.from(document.querySelectorAll('.photo-overlay img, .photo-area img'))) {
+        if (!img.naturalWidth || !img.naturalHeight) continue;
+        const NW = img.naturalWidth, NH = img.naturalHeight;
+        try {
+          // Geometry only — measure on a downsampled copy, crop from the original.
+          const MAX = 400;
+          const s = Math.min(1, MAX / Math.max(NW, NH));
+          const cw = Math.max(1, Math.round(NW * s)), ch = Math.max(1, Math.round(NH * s));
+          const c = document.createElement('canvas');
+          c.width = cw; c.height = ch;
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, cw, ch);
+          const d = ctx.getImageData(0, 0, cw, ch).data;
+
+          let minX = cw, maxX = -1, minY = ch, maxY = -1;
+          for (let y = 0; y < ch; y++) {
+            const base = y * cw;
+            for (let x = 0; x < cw; x++) {
+              if (d[(base + x) * 4 + 3] > 24) {   // same alpha floor as the centring pass
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
+          if (maxX < 0) continue;                 // fully transparent file — leave it alone
+
+          // Map back to full resolution, widening by one downsampled pixel: the
+          // downscale that produced `c` blends edge alpha, so the measured box can
+          // sit a pixel inside the real silhouette.
+          const g = 1 / s;
+          const x0 = Math.max(0,  Math.floor((minX - 1) * g));
+          const y0 = Math.max(0,  Math.floor((minY - 1) * g));
+          const x1 = Math.min(NW, Math.ceil((maxX + 2) * g));
+          const y1 = Math.min(NH, Math.ceil((maxY + 2) * g));
+          const tw = x1 - x0, th = y1 - y0;
+          if (tw < 16 || th < 16) continue;                     // implausible crop
+          if (tw >= NW * 0.99 && th >= NH * 0.99) continue;     // no real padding to remove
+
+          const out = document.createElement('canvas');
+          out.width = tw; out.height = th;
+          out.getContext('2d').drawImage(img, x0, y0, tw, th, 0, 0, tw, th);
+          // toBlob + object URL rather than toDataURL: no base64 pass over a
+          // multi-megapixel crop, which matters on a 500-employee batch.
+          const blob = await new Promise(res => out.toBlob(res, 'image/png'));
+          if (!blob) continue;
+          img.src = URL.createObjectURL(blob);
+          await img.decode().catch(() => {});
+        } catch (e) { /* tainted canvas or OOM — render the photo as-is */ }
+      }
+    });
+
     // Centre the SUBJECT, not the image (anniversary polaroid).
     // `object-fit: cover` centres the image BOX; a transparent cut-out whose person
     // sits off-centre inside their own PNG therefore renders off-centre in the
